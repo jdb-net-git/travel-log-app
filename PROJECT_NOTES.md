@@ -23,7 +23,7 @@ index.html
 The current app script is loaded with a cache-busting query string:
 
 ```html
-<script src="./travel-log.js?v=15" defer></script>
+<script src="./travel-log.js?v=16" defer></script>
 ```
 
 When changing `travel-log.js`, bump the version number in `index.html` so browsers pick up the latest script.
@@ -69,7 +69,7 @@ This means:
 Seed data includes:
 
 - `Alaska Trip`
-- `Spain 2026 Trip`
+- `Spain 2027 Trip`
 
 These are only used when no localStorage data exists.
 
@@ -161,4 +161,3 @@ When continuing this project, start with:
 ```text
 Please read PROJECT_NOTES.md, index.html, and travel-log.js, then help me continue editing this Travel Log app.
 ```
-

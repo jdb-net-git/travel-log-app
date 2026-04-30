@@ -1,24 +1,24 @@
 (function () {
   var storageKey = "travel-log-entries-v1";
-  var entries = loadEntries() || [
-    item("Alaska Trip", "2026-05-08", "", "Seattle", "Fly to Seattle", ""),
-    item("Alaska Trip", "2026-05-10", "", "Ship", "Board Ship", ""),
-    item("Alaska Trip", "2026-05-17", "", "LAX", "Fly to LAX", ""),
-    item("Spain 2026 Trip", "2026-06-03", "", "LAX", "LAX to Madrid", ""),
-    item("Spain 2026 Trip", "2026-06-03", "", "Madrid", "LAX to Madrid", ""),
-    item("Spain 2026 Trip", "2026-06-04", "13:50", "Madrid", "Arrive Madrid", "Connecting flight to Bilbao at 4:45 PM."),
-    item("Spain 2026 Trip", "2026-06-04", "17:50", "Bilbao", "Arrive Bilbao", "Hotel: Radisson Collection."),
-    item("Spain 2026 Trip", "2026-06-04", "", "Radisson Collection", "Hotel: Radisson Collection", ""),
-    item("Spain 2026 Trip", "2026-06-05", "", "Bilbao", "Bilbao all day", "Maybe meeting cousin."),
-    item("Spain 2026 Trip", "2026-06-06", "10:00", "Train", "Board Train", "Tour of Bilbao provided by train."),
-    item("Spain 2026 Trip", "2026-06-06", "", "Bilbao", "Tour of Bilbao provided by train", ""),
-    item("Spain 2026 Trip", "2026-06-07", "", "Train", "Train", ""),
-    item("Spain 2026 Trip", "2026-06-08", "", "Train", "Train", ""),
-    item("Spain 2026 Trip", "2026-06-09", "", "Train", "Train", ""),
-    item("Spain 2026 Trip", "2026-06-10", "", "Train", "Train", ""),
-    item("Spain 2026 Trip", "2026-06-11", "", "Santiago", "Arrive Santiago lunch with train", "Hotel: Parador (1 night)."),
-    item("Spain 2026 Trip", "2026-06-11", "", "Parador", "Hotel: Parador (1 night)", "")
-  ];
+  var entries = migrateDates(loadEntries() || [
+    item("Alaska Trip", "2027-04-08", "", "Seattle", "Fly to Seattle", ""),
+    item("Alaska Trip", "2027-04-10", "", "Ship", "Board Ship", ""),
+    item("Alaska Trip", "2027-04-17", "", "LAX", "Fly to LAX", ""),
+    item("Spain 2027 Trip", "2027-05-03", "", "LAX", "LAX to Madrid", ""),
+    item("Spain 2027 Trip", "2027-05-03", "", "Madrid", "LAX to Madrid", ""),
+    item("Spain 2027 Trip", "2027-05-04", "13:50", "Madrid", "Arrive Madrid", "Connecting flight to Bilbao at 4:45 PM."),
+    item("Spain 2027 Trip", "2027-05-04", "17:50", "Bilbao", "Arrive Bilbao", "Hotel: Radisson Collection."),
+    item("Spain 2027 Trip", "2027-05-04", "", "Radisson Collection", "Hotel: Radisson Collection", ""),
+    item("Spain 2027 Trip", "2027-05-05", "", "Bilbao", "Bilbao all day", "Maybe meeting cousin."),
+    item("Spain 2027 Trip", "2027-05-06", "10:00", "Train", "Board Train", "Tour of Bilbao provided by train."),
+    item("Spain 2027 Trip", "2027-05-06", "", "Bilbao", "Tour of Bilbao provided by train", ""),
+    item("Spain 2027 Trip", "2027-05-07", "", "Train", "Train", ""),
+    item("Spain 2027 Trip", "2027-05-08", "", "Train", "Train", ""),
+    item("Spain 2027 Trip", "2027-05-09", "", "Train", "Train", ""),
+    item("Spain 2027 Trip", "2027-05-10", "", "Train", "Train", ""),
+    item("Spain 2027 Trip", "2027-05-11", "", "Santiago", "Arrive Santiago lunch with train", "Hotel: Parador (1 night)."),
+    item("Spain 2027 Trip", "2027-05-11", "", "Parador", "Hotel: Parador (1 night)", "")
+  ]);
 
   document.addEventListener("DOMContentLoaded", function () {
     render();
@@ -79,7 +79,7 @@
         '</h2><input name="entryId" type="hidden" value="' +
         esc(editing ? editing.id : "") +
         '"><label>Trip<input name="trip" value="' +
-        esc(editing ? editing.trip : "Spain 2026 Trip") +
+        esc(editing ? editing.trip : "Spain 2027 Trip") +
         '"></label><label>Location<input name="location" placeholder="Madrid" value="' +
         esc(editing ? editing.location : "") +
         '"></label><label>Date<input name="date" type="date" value="' +
@@ -98,7 +98,7 @@
 
   function showImport() {
     showModal(
-      '<section class="modal import-modal"><h2>Import Events</h2><input name="importFile" type="file" accept=".txt,.md,.csv,text/plain" hidden><button type="button" data-action="choose-import-file">Import from file</button><label>Freeform events<textarea name="importText" rows="10" placeholder="Spain 2026 Trip&#10;Wed 6/3 LAX - Madrid"></textarea></label><button type="button" data-action="parse-import">Convert to entries</button><div class="import-results" hidden></div><div class="modal-actions"><button type="button" data-action="approve-import">Add approved</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+      '<section class="modal import-modal"><h2>Import Events</h2><input name="importFile" type="file" accept=".txt,.md,.csv,text/plain" hidden><button type="button" data-action="choose-import-file">Import from file</button><label>Freeform events<textarea name="importText" rows="10" placeholder="Spain 2027 Trip&#10;Mon 5/3 LAX - Madrid"></textarea></label><button type="button" data-action="parse-import">Convert to entries</button><div class="import-results" hidden></div><div class="modal-actions"><button type="button" data-action="approve-import">Add approved</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
     );
   }
 
@@ -384,6 +384,27 @@
     } catch (error) {
       return null;
     }
+  }
+
+  function migrateDates(list) {
+    var changed = false;
+    var migrated = list.map(function (entry) {
+      var nextDate = entry.date;
+      var nextTrip = entry.trip === "Spain 2026 Trip" ? "Spain 2027 Trip" : entry.trip;
+      if (entry.date && entry.date.indexOf("2026-06-") === 0) nextDate = entry.date.replace("2026-06-", "2027-05-");
+      if (entry.date && entry.date.indexOf("2026-05-") === 0) nextDate = entry.date.replace("2026-05-", "2027-04-");
+      if (nextDate === entry.date && nextTrip === entry.trip) return entry;
+      changed = true;
+      return item(nextTrip, nextDate, entry.time, entry.location, entry.description, entry.notes, entry.id);
+    });
+    if (changed) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(migrated));
+      } catch (error) {
+        return migrated;
+      }
+    }
+    return migrated;
   }
 
   function findEntry(id) {
