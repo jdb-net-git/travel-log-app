@@ -50,6 +50,9 @@
     if (action === "export-text") exportTextFile();
     if (action === "import") showImport();
     if (action === "choose-import-file") chooseImportFile();
+    if (action === "import-file-add") importFileAdd();
+    if (action === "import-file-replace") confirmImportFileReplace();
+    if (action === "confirm-import-file-replace") importFileReplace();
     if (action === "parse-import") parseImportText();
     if (action === "approve-import") approveImport();
     if (action === "reload-sample-data") confirmReloadSampleData();
@@ -121,9 +124,45 @@
       reader.onload = function () {
         var textArea = document.querySelector('[name="importText"]');
         if (textArea) textArea.value = String(reader.result || "");
+        window.pendingImportFileText = String(reader.result || "");
+        showImportFileChoice(file.name);
       };
       reader.readAsText(file);
     };
+  }
+
+  function showImportFileChoice(fileName) {
+    showModal(
+      '<section class="modal"><h2>Import File</h2><p class="description">' +
+        esc(fileName || "Selected file") +
+        '</p><div class="modal-actions"><button type="button" data-action="import-file-add">Add</button><button class="delete-button" type="button" data-action="import-file-replace">Replace All</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+    );
+  }
+
+  function importFileAdd() {
+    importEntriesFromText(window.pendingImportFileText || "", false);
+  }
+
+  function confirmImportFileReplace() {
+    showModal(
+      '<section class="modal"><h2>Replace All Data?</h2><p class="description">This will permanently erase the current trips and events in this browser, then load the file.</p><div class="modal-actions"><button class="delete-button" type="button" data-action="confirm-import-file-replace">Replace</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+    );
+  }
+
+  function importFileReplace() {
+    importEntriesFromText(window.pendingImportFileText || "", true);
+  }
+
+  function importEntriesFromText(text, replaceAll) {
+    var imported = parseFreeformEvents(text);
+    if (!imported.length) {
+      showModal('<section class="modal"><h2>No Events Found</h2><p class="description">No dated events were found in the file.</p><div class="modal-actions"><button type="button" data-action="close-modal">Close</button></div></section>');
+      return;
+    }
+    entries = replaceAll ? imported : entries.concat(imported);
+    window.pendingImportFileText = "";
+    closeModal();
+    render();
   }
 
   function parseImportText() {
