@@ -23,6 +23,7 @@ Open `index.html` in a browser.
 - Delete entire trips with typed-name confirmation
 - Local search across trip, date, time, location, description, and notes
 - Import freeform trip notes from pasted text or a file
+- Export a shareable text itinerary that can be imported back into the app
 - Review imported entries before adding them
 - Persistent browser storage with `localStorage`
 - PDF export in a new print-friendly tab
@@ -68,7 +69,7 @@ http://your-server/travel-log/
 When changing `travel-log.js`, bump the script version in `index.html`, for example:
 
 ```html
-<script src="./travel-log.js?v=17" defer></script>
+<script src="./travel-log.js?v=18" defer></script>
 ```
 
 This helps browsers load the newest script instead of using a cached copy.

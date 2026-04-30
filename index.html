@@ -25,6 +25,10 @@
         justify-content: space-between;
         gap: 12px;
       }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
       .meta {
         display: flex;
         align-items: baseline;
@@ -263,7 +267,10 @@
           <p class="eyebrow">Travel Log</p>
           <h1>Trips</h1>
         </div>
-        <button type="button" data-action="export">PDF</button>
+        <div class="header-actions">
+          <button type="button" data-action="export-text">TXT</button>
+          <button type="button" data-action="export">PDF</button>
+        </div>
       </header>
 
       <section class="search">
@@ -318,6 +325,6 @@
       </section>
     </main>
     <button class="fab" type="button" aria-label="Add entry" data-action="add">+</button>
-    <script src="./travel-log.js?v=17" defer></script>
+    <script src="./travel-log.js?v=18" defer></script>
   </body>
 </html>

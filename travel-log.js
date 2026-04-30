@@ -42,6 +42,7 @@
     if (action === "start-delete-trip") showTripDeleteConfirm(event);
     if (action === "confirm-delete-trip") deleteTrip(event);
     if (action === "export") openPdfTab();
+    if (action === "export-text") exportTextFile();
     if (action === "import") showImport();
     if (action === "choose-import-file") chooseImportFile();
     if (action === "parse-import") parseImportText();
@@ -286,6 +287,46 @@
     }, 250);
   }
 
+  function exportTextFile() {
+    var text = buildExportText();
+    var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "travel-log-itinerary.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 500);
+  }
+
+  function buildExportText() {
+    var lines = [
+      "# Travel Log Export",
+      "# This file can be imported back into the Travel Log app.",
+      ""
+    ];
+
+    groupByTrip(entries).forEach(function (group) {
+      lines.push(group[0]);
+      sortByDate(group[1]).forEach(function (entry) {
+        var parts = [
+          entry.date,
+          "Location: " + exportValue(entry.location),
+          "Description: " + exportValue(entry.description)
+        ];
+        if (entry.time) parts.splice(1, 0, "Time: " + exportValue(entry.time));
+        if (entry.notes) parts.push("Notes: " + exportValue(entry.notes));
+        lines.push(parts.join(" | "));
+      });
+      lines.push("");
+    });
+
+    return lines.join("\n");
+  }
+
   function parseFreeformEvents(text) {
     var lines = String(text || "").split(/\r?\n/).map(function (line) {
       return normalizeImportLine(line);
@@ -295,6 +336,13 @@
     var year = new Date().getFullYear();
 
     lines.forEach(function (line) {
+      if (line.charAt(0) === "#") return;
+      var exported = parseExportLine(line, trip);
+      if (exported) {
+        parsed.push(exported);
+        return;
+      }
+
       var match = line.match(/^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\.?,?\s+)?(\d{1,2})[\/\-.](\d{1,2})\b\s*(.*)$/i);
       if (!match) {
         trip = line;
@@ -324,6 +372,32 @@
     });
 
     return parsed;
+  }
+
+  function parseExportLine(line, trip) {
+    var match = line.match(/^(\d{4})-(\d{2})-(\d{2})\s*\|\s*(.+)$/);
+    if (!match) return null;
+
+    var fields = parseExportFields(match[4]);
+    if (!fields.Location && !fields.Description) return null;
+    return item(
+      trip,
+      match[1] + "-" + match[2] + "-" + match[3],
+      fields.Time || "",
+      fields.Location || "Unspecified",
+      fields.Description || "Imported event",
+      fields.Notes || ""
+    );
+  }
+
+  function parseExportFields(value) {
+    var fields = {};
+    value.split(/\s+\|\s+/).forEach(function (part) {
+      var fieldMatch = part.match(/^([A-Za-z]+):\s*(.*)$/);
+      if (!fieldMatch) return;
+      fields[fieldMatch[1]] = importValue(fieldMatch[2]);
+    });
+    return fields;
   }
 
   function normalizeImportLine(line) {
@@ -481,6 +555,14 @@
 
   function pad(value) {
     return String(value).length === 1 ? "0" + value : String(value);
+  }
+
+  function exportValue(value) {
+    return String(value || "").replace(/\r?\n/g, "\\n").replace(/\|/g, "\\|");
+  }
+
+  function importValue(value) {
+    return String(value || "").replace(/\\\|/g, "|").replace(/\\n/g, "\n");
   }
 
   function unique(values) {
