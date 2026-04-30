@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>Travel Log</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #f7f8f5;
+        color: #1d2420;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      main {
+        max-width: 760px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 88px 16px 96px;
+      }
+      header, .search, .trip-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .meta {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+      }
+      h1, h2, p { margin: 0; }
+      h1 { font-size: 32px; line-height: 1.1; }
+      h2 { font-size: 17px; }
+      .eyebrow {
+        color: #116a5c;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .search { margin: 18px 0 22px; }
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        padding: 0 13px;
+        font: inherit;
+      }
+      button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        background: #eef5f2;
+        color: #0b5148;
+        padding: 0 14px;
+        font: inherit;
+        font-weight: 700;
+      }
+      .trips, .trip, .events {
+        display: grid;
+        gap: 12px;
+      }
+      .trip { margin-bottom: 12px; }
+      .trip-heading {
+        color: #64706a;
+        margin-top: 4px;
+      }
+      .trip-heading h2 { color: #1d2420; }
+      .trip-heading > div {
+        display: grid;
+        gap: 2px;
+      }
+      .event {
+        position: relative;
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        background: #fff;
+        padding: 14px;
+      }
+      .event-alert {
+        border-color: #f2b8b5;
+        padding-left: 42px;
+      }
+      .alert-badge {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #b42318;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .not-booked {
+        color: #b42318;
+        font-weight: 800;
+      }
+      .meta {
+        color: #64706a;
+        font-size: 14px;
+      }
+      .meta strong {
+        color: #1d2420;
+        font-size: 16px;
+      }
+      .location {
+        font-size: 16px;
+        font-weight: 800;
+      }
+      .description {
+        color: #64706a;
+        line-height: 1.35;
+      }
+      .notes {
+        margin-top: 6px;
+        border-left: 3px solid #dce4df;
+        color: #3f4b46;
+        line-height: 1.35;
+        padding-left: 10px;
+      }
+      .event-main {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 12px;
+      }
+      .edit-button {
+        min-height: 36px;
+        padding: 0 12px;
+      }
+      .fab {
+        position: fixed;
+        left: 50%;
+        top: 16px;
+        transform: translateX(-50%);
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: #116a5c;
+        color: #fff;
+        font-size: 32px;
+        line-height: 1;
+        box-shadow: 0 16px 38px rgba(30, 45, 38, 0.12);
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(13, 20, 17, 0.42);
+      }
+      .modal {
+        width: min(100%, 380px);
+        display: grid;
+        gap: 14px;
+        border-radius: 8px;
+        background: #fff;
+        padding: 18px;
+        box-shadow: 0 16px 38px rgba(30, 45, 38, 0.12);
+      }
+      .modal label {
+        display: grid;
+        gap: 7px;
+        color: #64706a;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .modal textarea {
+        width: 100%;
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        padding: 12px 13px;
+        font: inherit;
+        resize: vertical;
+      }
+      .modal-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+        gap: 10px;
+      }
+      .delete-button {
+        background: #fff1f0;
+        color: #b42318;
+      }
+      .import-results {
+        display: grid;
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
+      .approval-item {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 10px;
+        align-items: start;
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .approval-item input {
+        min-height: auto;
+        margin-top: 3px;
+      }
+      @media print {
+        .search, .fab, button { display: none; }
+        body { background: #fff; }
+        .trip {
+          break-after: page;
+          page-break-after: always;
+        }
+        .trip:last-child {
+          break-after: auto;
+          page-break-after: auto;
+        }
+        .event {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          gap: 4px;
+          padding: 8px 10px;
+        }
+        .event-main {
+          display: block;
+        }
+        .meta {
+          display: inline;
+          font-size: 11px;
+          line-height: 1.25;
+        }
+        .meta span,
+        .meta strong {
+          display: inline;
+          margin-right: 8px;
+          font-size: 11px;
+        }
+        .description {
+          display: inline;
+          color: #1d2420;
+          font-size: 11px;
+          line-height: 1.25;
+        }
+        .description::before {
+          content: "- ";
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Travel Log</p>
+          <h1>Trips</h1>
+        </div>
+        <button type="button" data-action="export">PDF</button>
+      </header>
+
+      <section class="search">
+        <input type="search" placeholder="Search entries" aria-label="Search entries">
+        <button type="button" data-action="import">Import</button>
+      </section>
+
+      <section class="trips">
+        <section class="trip">
+          <div class="trip-heading">
+            <h2>Alaska Trip</h2>
+            <span>3 events</span>
+          </div>
+          <div class="events">
+            <article class="event">
+              <div class="meta"><span>Fri, May 8, 2026</span><strong>Seattle</strong></div>
+              <p class="description">Fly to Seattle</p>
+            </article>
+            <article class="event">
+              <div class="meta"><span>Sun, May 10, 2026</span><strong>Ship</strong></div>
+              <p class="description">Board Ship</p>
+            </article>
+            <article class="event">
+              <div class="meta"><span>Sun, May 17, 2026</span><strong>LAX</strong></div>
+              <p class="description">Fly to LAX</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="trip">
+          <div class="trip-heading">
+            <h2>Spain 2026 Trip</h2>
+            <span>14 events</span>
+          </div>
+          <div class="events">
+            <article class="event"><div class="meta"><span>Wed, Jun 3, 2026</span><strong>LAX</strong></div><p class="description">LAX to Madrid</p></article>
+            <article class="event"><div class="meta"><span>Wed, Jun 3, 2026</span><strong>Madrid</strong></div><p class="description">LAX to Madrid</p></article>
+            <article class="event"><div class="meta"><span>Thu, Jun 4, 2026</span><span>1:50 PM</span><strong>Madrid</strong></div><p class="description">Arrive Madrid</p></article>
+            <article class="event"><div class="meta"><span>Thu, Jun 4, 2026</span><span>5:50 PM</span><strong>Bilbao</strong></div><p class="description">Arrive Bilbao</p></article>
+            <article class="event"><div class="meta"><span>Thu, Jun 4, 2026</span><strong>Radisson Collection</strong></div><p class="description">Hotel: Radisson Collection</p></article>
+            <article class="event"><div class="meta"><span>Fri, Jun 5, 2026</span><strong>Bilbao</strong></div><p class="description">Bilbao all day</p></article>
+            <article class="event"><div class="meta"><span>Sat, Jun 6, 2026</span><span>10:00 AM</span><strong>Train</strong></div><p class="description">Board Train</p></article>
+            <article class="event"><div class="meta"><span>Sat, Jun 6, 2026</span><strong>Bilbao</strong></div><p class="description">Tour of Bilbao provided by train</p></article>
+            <article class="event"><div class="meta"><span>Sun, Jun 7, 2026</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Mon, Jun 8, 2026</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Tue, Jun 9, 2026</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Wed, Jun 10, 2026</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Thu, Jun 11, 2026</span><strong>Santiago</strong></div><p class="description">Arrive Santiago lunch with train</p></article>
+            <article class="event"><div class="meta"><span>Thu, Jun 11, 2026</span><strong>Parador</strong></div><p class="description">Hotel: Parador (1 night)</p></article>
+          </div>
+        </section>
+      </section>
+    </main>
+    <button class="fab" type="button" aria-label="Add entry" data-action="add">+</button>
+    <script src="./travel-log.js?v=15" defer></script>
+  </body>
+</html>
