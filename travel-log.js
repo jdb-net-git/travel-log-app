@@ -1,6 +1,10 @@
 (function () {
   var storageKey = "travel-log-entries-v1";
-  var entries = migrateDates(loadEntries() || [
+  var savedEntries = loadEntries();
+  var entries = savedEntries ? migrateDates(savedEntries) : sampleEntries();
+
+  function sampleEntries() {
+    return [
     item("Alaska Trip", "2027-04-08", "", "Seattle", "Fly to Seattle", ""),
     item("Alaska Trip", "2027-04-10", "", "Ship", "Board Ship", ""),
     item("Alaska Trip", "2027-04-17", "", "LAX", "Fly to LAX", ""),
@@ -18,7 +22,8 @@
     item("Spain 2027 Trip", "2027-05-10", "", "Train", "Train", ""),
     item("Spain 2027 Trip", "2027-05-11", "", "Santiago", "Arrive Santiago lunch with train", "Hotel: Parador (1 night)."),
     item("Spain 2027 Trip", "2027-05-11", "", "Parador", "Hotel: Parador (1 night)", "")
-  ]);
+    ];
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     render();
@@ -47,6 +52,8 @@
     if (action === "choose-import-file") chooseImportFile();
     if (action === "parse-import") parseImportText();
     if (action === "approve-import") approveImport();
+    if (action === "reload-sample-data") confirmReloadSampleData();
+    if (action === "confirm-reload-sample-data") reloadSampleData();
     if (event.target.className === "modal-backdrop") closeModal();
   }
 
@@ -99,7 +106,7 @@
 
   function showImport() {
     showModal(
-      '<section class="modal import-modal"><h2>Import Events</h2><input name="importFile" type="file" accept=".txt,.md,.csv,text/plain" hidden><button type="button" data-action="choose-import-file">Import from file</button><label>Freeform events<textarea name="importText" rows="10" placeholder="Spain 2027 Trip&#10;Mon 5/3 LAX - Madrid"></textarea></label><button type="button" data-action="parse-import">Convert to entries</button><div class="import-results" hidden></div><div class="modal-actions"><button type="button" data-action="approve-import">Add approved</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+      '<section class="modal import-modal"><h2>Import Events</h2><input name="importFile" type="file" accept=".txt,.md,.csv,text/plain" hidden><button type="button" data-action="choose-import-file">Import from file</button><label>Freeform events<textarea name="importText" rows="10" placeholder="Spain 2027 Trip&#10;Mon 5/3 LAX - Madrid"></textarea></label><button type="button" data-action="parse-import">Convert to entries</button><button class="delete-button" type="button" data-action="reload-sample-data">Reload sample data</button><div class="import-results" hidden></div><div class="modal-actions"><button type="button" data-action="approve-import">Add approved</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
     );
   }
 
@@ -147,6 +154,23 @@
       entries.push(pending[Number(checked[i].getAttribute("data-import-index"))]);
     }
     window.pendingImportEntries = [];
+    closeModal();
+    render();
+  }
+
+  function confirmReloadSampleData() {
+    showModal(
+      '<section class="modal"><h2>Reload Sample Data?</h2><p class="description">This will remove all current trips and events from this browser and replace them with the built-in sample itinerary.</p><div class="modal-actions"><button class="delete-button" type="button" data-action="confirm-reload-sample-data">Reload</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+    );
+  }
+
+  function reloadSampleData() {
+    entries = sampleEntries();
+    try {
+      localStorage.removeItem(storageKey);
+    } catch (error) {
+      return;
+    }
     closeModal();
     render();
   }
@@ -474,9 +498,9 @@
     var changed = false;
     var migrated = list.map(function (entry) {
       var nextDate = entry.date;
-      var nextTrip = entry.trip === "Spain 2026 Trip" ? "Spain 2027 Trip" : entry.trip;
-      if (entry.date && entry.date.indexOf("2026-06-") === 0) nextDate = entry.date.replace("2026-06-", "2027-05-");
-      if (entry.date && entry.date.indexOf("2026-05-") === 0) nextDate = entry.date.replace("2026-05-", "2027-04-");
+      var nextTrip = entry.trip === "Spain 2027 Trip" ? "Spain 2026 Trip" : entry.trip;
+      if (entry.date && entry.date.indexOf("2027-05-") === 0) nextDate = entry.date.replace("2027-05-", "2026-06-");
+      if (entry.date && entry.date.indexOf("2027-04-") === 0) nextDate = entry.date.replace("2027-04-", "2026-05-");
       if (nextDate === entry.date && nextTrip === entry.trip) return entry;
       changed = true;
       return item(nextTrip, nextDate, entry.time, entry.location, entry.description, entry.notes, entry.id);

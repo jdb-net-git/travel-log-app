@@ -23,7 +23,7 @@ index.html
 The current app script is loaded with a cache-busting query string:
 
 ```html
-<script src="./travel-log.js?v=18" defer></script>
+<script src="./travel-log.js?v=20" defer></script>
 ```
 
 When changing `travel-log.js`, bump the version number in `index.html` so browsers pick up the latest script.
@@ -58,6 +58,7 @@ This means:
 - Import supports freeform pasted text and text-like file input.
 - Import converts freeform events into proposed entries and shows checkboxes for approval.
 - Import splits multi-location events into separate entries when possible.
+- Import screen has a guarded reload option that clears local data and restores the built-in sample itinerary.
 - TXT export downloads a shareable text itinerary that can be imported back into the app.
 - PDF export opens a new print-friendly tab and automatically launches the print/PDF dialog.
 - PDF output has one page per trip.
