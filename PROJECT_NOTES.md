@@ -23,7 +23,7 @@ index.html
 The current app script is loaded with a cache-busting query string:
 
 ```html
-<script src="./travel-log.js?v=23" defer></script>
+<script src="./travel-log.js?v=24" defer></script>
 ```
 
 When changing `travel-log.js`, bump the version number in `index.html` so browsers pick up the latest script.
@@ -47,6 +47,7 @@ This means:
 ## Current Features
 
 - Trip list grouped by trip.
+- Trips sorted by the first event in each trip, earliest first.
 - Events sorted by date inside each trip.
 - One event per line/card.
 - Floating `+` button at the top center for adding an event.

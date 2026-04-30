@@ -569,7 +569,14 @@
     });
     return Object.keys(groups).map(function (trip) {
       return [trip, groups[trip]];
+    }).sort(function (a, b) {
+      return tripStart(a[1]) - tripStart(b[1]);
     });
+  }
+
+  function tripStart(list) {
+    var sorted = sortByDate(list);
+    return sorted.length ? stamp(sorted[0]) : 0;
   }
 
   function sortByDate(list) {

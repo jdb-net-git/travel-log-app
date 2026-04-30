@@ -15,6 +15,7 @@ Open `index.html` in a browser.
 ## Features
 
 - Trips grouped by trip name
+- Trips sorted by the first event in each trip, earliest first
 - Events sorted by date inside each trip
 - Compact one-line event display
 - Add and edit events
@@ -73,7 +74,7 @@ http://your-server/travel-log/
 When changing `travel-log.js`, bump the script version in `index.html`, for example:
 
 ```html
-<script src="./travel-log.js?v=23" defer></script>
+<script src="./travel-log.js?v=24" defer></script>
 ```
 
 This helps browsers load the newest script instead of using a cached copy.
