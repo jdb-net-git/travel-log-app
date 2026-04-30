@@ -68,7 +68,7 @@ http://your-server/travel-log/
 When changing `travel-log.js`, bump the script version in `index.html`, for example:
 
 ```html
-<script src="./travel-log.js?v=16" defer></script>
+<script src="./travel-log.js?v=17" defer></script>
 ```
 
 This helps browsers load the newest script instead of using a cached copy.

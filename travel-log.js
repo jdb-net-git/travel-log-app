@@ -126,7 +126,7 @@
     var results = modal.querySelector(".import-results");
     if (!candidates.length) {
       results.hidden = false;
-      results.innerHTML = '<p class="description">No dated events found.</p>';
+      results.innerHTML = '<p class="description">No dated events found. Try lines like "Mon 5/3 LAX - Madrid" or "5/8 Fly to Seattle".</p>';
       return;
     }
 
@@ -288,14 +288,14 @@
 
   function parseFreeformEvents(text) {
     var lines = String(text || "").split(/\r?\n/).map(function (line) {
-      return line.trim();
+      return normalizeImportLine(line);
     }).filter(Boolean);
     var parsed = [];
     var trip = "Imported Trip";
     var year = new Date().getFullYear();
 
     lines.forEach(function (line) {
-      var match = line.match(/^((?:mon|monday|tues|tuesday|wed|wednesday|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\s+)?(\d{1,2})\/(\d{1,2})\s+(.+)$/i);
+      var match = line.match(/^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\.?,?\s+)?(\d{1,2})[\/\-.](\d{1,2})\b\s*(.*)$/i);
       if (!match) {
         trip = line;
         var yearMatch = line.match(/\b(20\d{2})\b/);
@@ -303,8 +303,9 @@
         return;
       }
 
-      var date = year + "-" + pad(match[2]) + "-" + pad(match[3]);
-      var body = match[4];
+      var body = match[3].trim();
+      if (!body) return;
+      var date = year + "-" + pad(match[1]) + "-" + pad(match[2]);
       var route = body.match(/^([A-Za-z ]+)\s+(?:-|–|—)\s+([A-Za-z ]+)$/);
       if (route) {
         parsed.push(item(trip, date, "", route[1].trim(), body, ""));
@@ -323,6 +324,15 @@
     });
 
     return parsed;
+  }
+
+  function normalizeImportLine(line) {
+    return String(line || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/[•*]+/g, " ")
+      .replace(/^\s*[-–—]\s+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function importLocations(text) {
