@@ -1,7 +1,7 @@
 (function () {
   var storageKey = "travel-log-entries-v1";
   var savedEntries = loadEntries();
-  var entries = savedEntries ? migrateDates(savedEntries) : sampleEntries();
+  var entries = savedEntries || sampleEntries();
 
   function sampleEntries() {
     return [
@@ -531,27 +531,6 @@
     } catch (error) {
       return null;
     }
-  }
-
-  function migrateDates(list) {
-    var changed = false;
-    var migrated = list.map(function (entry) {
-      var nextDate = entry.date;
-      var nextTrip = entry.trip === "Spain 2027 Trip" ? "Spain 2026 Trip" : entry.trip;
-      if (entry.date && entry.date.indexOf("2027-05-") === 0) nextDate = entry.date.replace("2027-05-", "2026-06-");
-      if (entry.date && entry.date.indexOf("2027-04-") === 0) nextDate = entry.date.replace("2027-04-", "2026-05-");
-      if (nextDate === entry.date && nextTrip === entry.trip) return entry;
-      changed = true;
-      return item(nextTrip, nextDate, entry.time, entry.location, entry.description, entry.notes, entry.id);
-    });
-    if (changed) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(migrated));
-      } catch (error) {
-        return migrated;
-      }
-    }
-    return migrated;
   }
 
   function findEntry(id) {

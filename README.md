@@ -43,6 +43,8 @@ travel-log-entries-v1
 
 This means edits survive refreshes on the same browser/device, but data is not shared across devices or stored on the web server.
 
+The app does not automatically change saved trip names or dates. It uses saved browser data as-is, or loads the built-in 2027 sample itinerary when no saved data exists.
+
 ## Deploy To Nginx
 
 Copy these files to your Nginx web directory:
@@ -71,7 +73,7 @@ http://your-server/travel-log/
 When changing `travel-log.js`, bump the script version in `index.html`, for example:
 
 ```html
-<script src="./travel-log.js?v=21" defer></script>
+<script src="./travel-log.js?v=23" defer></script>
 ```
 
 This helps browsers load the newest script instead of using a cached copy.

@@ -23,7 +23,7 @@ index.html
 The current app script is loaded with a cache-busting query string:
 
 ```html
-<script src="./travel-log.js?v=21" defer></script>
+<script src="./travel-log.js?v=23" defer></script>
 ```
 
 When changing `travel-log.js`, bump the version number in `index.html` so browsers pick up the latest script.
@@ -42,6 +42,7 @@ This means:
 - Data is per browser/device.
 - Nginx only serves static files; it does not store centralized trip data.
 - Clearing browser site data will reset the app to seeded sample data.
+- The app should not automatically migrate or rewrite saved dates/trip names. Saved data is used as-is.
 
 ## Current Features
 
