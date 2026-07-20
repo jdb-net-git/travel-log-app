@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>Travel Planner Place</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0d1322;
+        color: #f4f7fb;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      a { color: inherit; }
+      button {
+        min-height: 38px;
+        border: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #f4f7fb;
+        padding: 0 13px;
+        font: inherit;
+        font-weight: 700;
+      }
+      .shell {
+        width: min(1180px, 100%);
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 290px 1fr 250px;
+        gap: 18px;
+        min-height: calc(100vh - 36px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: #111a2e;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+      }
+      .panel {
+        min-width: 0;
+        padding: 18px;
+      }
+      .left-panel {
+        display: grid;
+        grid-template-rows: auto minmax(300px, 1fr) auto;
+        gap: 14px;
+        background: #f5fbfb;
+        color: #14202a;
+      }
+      .brand,
+      .topbar,
+      .actions,
+      .source-row,
+      .calendar-head,
+      .metric {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .logo {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #13c6c7;
+        color: #071520;
+        font-weight: 900;
+      }
+      .brand strong { font-size: 15px; }
+      .brand span,
+      .muted {
+        color: #90a0b3;
+        font-size: 12px;
+      }
+      .map-card {
+        position: relative;
+        min-height: 360px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #dceff1;
+      }
+      .map-card iframe,
+      .map-card img {
+        width: 100%;
+        height: 100%;
+        min-height: 360px;
+        border: 0;
+        object-fit: cover;
+      }
+      .tile-map {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
+        height: 100%;
+        min-height: 360px;
+        filter: saturate(0.9) contrast(0.96);
+      }
+      .tile-map img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 120px;
+        object-fit: cover;
+      }
+      .map-fallback {
+        display: grid;
+        place-items: center;
+        min-height: 360px;
+        padding: 24px;
+        text-align: center;
+        color: #31515c;
+      }
+      .pin {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50% 50% 50% 4px;
+        background: #13c6c7;
+        color: #08212a;
+        font-weight: 900;
+        transform: rotate(-45deg);
+        box-shadow: 0 12px 30px rgba(4, 38, 46, 0.25);
+      }
+      .pin span { transform: rotate(45deg); }
+      .pin-one { left: 28%; top: 24%; }
+      .pin-two { right: 22%; top: 42%; }
+      .pin-three { left: 48%; bottom: 24%; }
+      .saved {
+        border-radius: 8px;
+        background: #fff;
+        padding: 12px;
+      }
+      .saved strong { display: block; }
+      .main-panel {
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        gap: 18px;
+      }
+      .topbar { padding-bottom: 4px; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 32px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #cdd8e8;
+        padding: 0 12px;
+        font-size: 13px;
+        text-decoration: none;
+      }
+      .primary {
+        background: #13c6c7;
+        color: #071520;
+      }
+      .home-link {
+        background: #ffd166;
+        color: #111a2e;
+      }
+      h1,
+      h2,
+      h3,
+      p { margin: 0; }
+      h1 {
+        margin-top: 12px;
+        font-size: clamp(34px, 6vw, 58px);
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+      .subtitle {
+        max-width: 760px;
+        margin-top: 12px;
+        color: #c4cfdf;
+        font-size: 16px;
+        line-height: 1.45;
+      }
+      .section-title {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .section-title h2 { font-size: 18px; }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .card {
+        min-height: 170px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #1a2741;
+        isolation: isolate;
+      }
+      .card img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -2;
+      }
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(10, 17, 31, 0.08), rgba(10, 17, 31, 0.84));
+        z-index: -1;
+      }
+      .card-content {
+        display: grid;
+        align-content: end;
+        min-height: 170px;
+        padding: 14px;
+      }
+      .card h3 { font-size: 16px; }
+      .card p {
+        margin-top: 5px;
+        color: #d7e0ee;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .right-panel {
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        gap: 18px;
+        background: #0d1527;
+      }
+      .calendar {
+        display: grid;
+        gap: 10px;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+        color: #8c9bb0;
+        font-size: 11px;
+        text-align: center;
+      }
+      .calendar-grid span {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 1;
+        border-radius: 50%;
+      }
+      .calendar-grid .day {
+        color: #d9e3f2;
+      }
+      .calendar-grid .active {
+        background: #13c6c7;
+        color: #071520;
+        font-weight: 900;
+      }
+      .todo {
+        display: grid;
+        gap: 10px;
+      }
+      .todo h2 { font-size: 16px; }
+      .metric {
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 11px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 13px;
+      }
+      .metric span {
+        color: #9fb0c5;
+        font-size: 12px;
+      }
+      .source-row {
+        align-items: flex-start;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 12px;
+      }
+      .source-row a {
+        color: #13c6c7;
+        font-size: 12px;
+        text-decoration: none;
+      }
+      @media (max-width: 960px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .left-panel,
+        .right-panel {
+          grid-template-rows: auto;
+        }
+      }
+      @media (max-width: 620px) {
+        .shell { padding: 0; }
+        .app {
+          min-height: 100vh;
+          border: 0;
+          border-radius: 0;
+        }
+        .panel { padding: 14px; }
+        .cards { grid-template-columns: 1fr; }
+        .actions { flex-wrap: wrap; justify-content: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="app">
+        <aside class="panel left-panel">
+          <div class="brand">
+            <div class="brand">
+              <span class="logo">JDB</span>
+              <div><strong>Travel Planner</strong><br><span id="trip-label">Itinerary</span></div>
+            </div>
+          </div>
+          <div class="map-card" id="map-card">
+            <div class="map-fallback">Loading map</div>
+            <div class="pin pin-one"><span>1</span></div>
+            <div class="pin pin-two"><span>2</span></div>
+            <div class="pin pin-three"><span>3</span></div>
+          </div>
+          <div class="saved">
+            <span class="muted">Selected Place</span>
+            <strong id="saved-place">Place</strong>
+          </div>
+        </aside>
+
+        <main class="panel main-panel">
+          <div class="topbar">
+            <a class="pill home-link" href="./index.html">Home</a>
+            <div class="actions">
+              <a class="pill" id="source-link" href="#" target="_blank" rel="noopener noreferrer">Source</a>
+              <a class="pill primary" id="map-link" href="#" target="_blank" rel="noopener noreferrer">Open Map</a>
+            </div>
+          </div>
+          <section>
+            <span class="pill" id="status">Loading live data</span>
+            <h1 id="place-title">Place</h1>
+            <p class="subtitle" id="summary">Fetching details from the internet.</p>
+          </section>
+          <section>
+            <div class="section-title">
+              <h2>Itinerary Cards</h2>
+              <span class="muted" id="card-count">0 cards</span>
+            </div>
+            <div class="cards" id="cards"></div>
+          </section>
+        </main>
+
+        <aside class="panel right-panel">
+          <section class="calendar">
+            <div class="calendar-head">
+              <h2 id="calendar-title">Calendar</h2>
+              <span class="muted" id="calendar-year"></span>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+          </section>
+          <section class="todo">
+            <h2>Destination Todo</h2>
+            <div class="metric"><div><strong id="weather-temp">Weather</strong><span id="weather-note">Waiting for location</span></div></div>
+            <div class="metric"><div><strong id="coord-value">Coordinates</strong><span id="coord-note">Waiting for map data</span></div></div>
+            <div class="metric"><div><strong id="nearby-value">Nearby</strong><span id="nearby-note">Waiting for places</span></div></div>
+          </section>
+          <div class="source-row">
+            <span class="muted">Live sources</span>
+            <div>
+              <a href="https://www.wikipedia.org/" target="_blank" rel="noopener noreferrer">Wikipedia</a><br>
+              <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a><br>
+              <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <script src="./place.js?v=2" defer></script>
+  </body>
+</html>

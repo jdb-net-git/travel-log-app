@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>Travel Log</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #0d1322;
+        color: #f4f7fb;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      main {
+        max-width: 760px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 88px 16px 96px;
+      }
+      header, .search, .trip-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .header-actions {
+        display: flex;
+        flex: 0 1 auto;
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+      .meta {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+      }
+      h1, h2, p { margin: 0; }
+      h1 { font-size: 32px; line-height: 1.1; }
+      h2 { font-size: 17px; }
+      .eyebrow {
+        color: #13c6c7;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .eyebrow a {
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .eyebrow a:focus,
+      .eyebrow a:hover {
+        color: #071520;
+        background: #13c6c7;
+      }
+      .search { margin: 18px 0 22px; }
+      input, select {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: #111a2e;
+        color: #f4f7fb;
+        padding: 0 13px;
+        font: inherit;
+      }
+      input::placeholder { color: #90a0b3; }
+      input[type="file"] {
+        padding: 10px 13px;
+      }
+      button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #f4f7fb;
+        padding: 0 14px;
+        font: inherit;
+        font-weight: 700;
+      }
+      button:focus,
+      button:hover {
+        background: #13c6c7;
+        color: #071520;
+      }
+      .header-actions button {
+        flex: 0 0 auto;
+        background: #ffd166;
+        color: #111a2e;
+      }
+      .header-actions button:focus,
+      .header-actions button:hover {
+        background: #13c6c7;
+        color: #071520;
+      }
+      .trips, .trip, .events {
+        display: grid;
+        gap: 12px;
+      }
+      .trip { margin-bottom: 12px; }
+      .trip-heading {
+        color: #9fb0c5;
+        margin-top: 4px;
+      }
+      .trip-heading h2 { color: #f4f7fb; }
+      .trip-heading > div {
+        display: grid;
+        gap: 2px;
+      }
+      .event {
+        position: relative;
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: #1a2741;
+        padding: 14px;
+        box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16);
+      }
+      .event-alert {
+        border-color: #ff8a7a;
+        padding-left: 42px;
+      }
+      .alert-badge {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ff6b5f;
+        color: #111a2e;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .not-booked {
+        color: #ff9b91;
+        font-weight: 800;
+      }
+      .meta {
+        color: #9fb0c5;
+        font-size: 14px;
+      }
+      .meta strong {
+        color: #f4f7fb;
+        font-size: 16px;
+      }
+      .location {
+        font-size: 16px;
+        font-weight: 800;
+      }
+      .description {
+        color: #c4cfdf;
+        line-height: 1.35;
+      }
+      .event .description a {
+        color: #13c6c7;
+        font-weight: 700;
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .location-link {
+        color: #13c6c7;
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .location-link:focus,
+      .location-link:hover {
+        color: #071520;
+        background: #13c6c7;
+      }
+      .event .description a:focus,
+      .event .description a:hover {
+        color: #071520;
+        background: #13c6c7;
+      }
+      .notes {
+        margin-top: 6px;
+        border-left: 3px solid #13c6c7;
+        color: #d7e0ee;
+        line-height: 1.35;
+        padding-left: 10px;
+      }
+      .attachment-marker {
+        display: inline-grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ffd166;
+        color: #111a2e;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .trip-resources {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: -4px 0 2px;
+      }
+      .attachment-link, .saved-link {
+        border-radius: 999px;
+        background: rgba(19, 198, 199, 0.12);
+        color: #13c6c7;
+        padding: 5px 9px;
+        font-size: 12px;
+        font-weight: 800;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .saved-link {
+        background: rgba(255, 209, 102, 0.15);
+        color: #ffd166;
+      }
+      .attachment-list {
+        display: grid;
+        gap: 4px;
+      }
+      .attachment-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: #1a2741;
+        padding: 5px 7px;
+      }
+      .attachment-item label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+      }
+      .attachment-item input {
+        width: auto;
+        min-height: auto;
+      }
+      .attachment-name {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .compact-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .link-grid {
+        display: grid;
+        grid-template-columns: 0.75fr 1fr;
+        gap: 6px;
+      }
+      .trip-picker-grid {
+        display: grid;
+        grid-template-columns: 1fr 0.8fr;
+        gap: 6px;
+      }
+      .event-main {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 12px;
+      }
+      .edit-button {
+        min-height: 36px;
+        padding: 0 12px;
+      }
+      .top-floating-actions {
+        position: fixed;
+        left: 50%;
+        top: 16px;
+        display: flex;
+        gap: 8px;
+        transform: translateX(-50%);
+        z-index: 2;
+      }
+      .fab {
+        min-width: 118px;
+        height: 48px;
+        border-radius: 999px;
+        background: #13c6c7;
+        color: #071520;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0 18px;
+        box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+      }
+      .settings-fab {
+        min-width: 48px;
+        width: 48px;
+        padding: 0;
+        font-size: 22px;
+      }
+      .readme-content {
+        max-height: min(62vh, 560px);
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: #0d1527;
+        color: #d7e0ee;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        overflow: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 18px;
+        background: rgba(5, 9, 18, 0.72);
+      }
+      .modal {
+        width: min(100%, 380px);
+        max-height: calc(100vh - 36px);
+        max-height: calc(100dvh - 36px);
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        display: grid;
+        gap: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #111a2e;
+        color: #f4f7fb;
+        padding: 12px;
+        margin: auto 0;
+        box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38);
+      }
+      .entry-modal,
+      .trip-modal {
+        gap: 8px;
+        padding: 10px;
+      }
+      .modal label {
+        color: #c4cfdf;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .entry-modal label,
+      .trip-modal label {
+        font-size: 12px;
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+      .entry-modal .field,
+      .trip-modal .field {
+        gap: 3px;
+      }
+      .modal textarea {
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: #0d1527;
+        color: #f4f7fb;
+        padding: 9px 11px;
+        font: inherit;
+        resize: vertical;
+      }
+      .entry-modal textarea {
+        min-height: 44px;
+        padding: 7px 9px;
+      }
+      .modal-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+        gap: 8px;
+      }
+      .entry-modal input,
+      .entry-modal select,
+      .trip-modal input {
+        min-height: 34px;
+        padding: 0 10px;
+      }
+      .entry-modal input[type="file"],
+      .trip-modal input[type="file"] {
+        padding: 7px 10px;
+      }
+      .delete-button {
+        background: rgba(255, 107, 95, 0.18);
+        color: #ffb2aa;
+      }
+      .import-results {
+        display: grid;
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
+      .approval-item {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 10px;
+        align-items: start;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #1a2741;
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .approval-item input {
+        min-height: auto;
+        margin-top: 3px;
+      }
+      @media print {
+        .search, .fab, button { display: none; }
+        body { background: #fff; }
+        .trip {
+          break-after: page;
+          page-break-after: always;
+        }
+        .trip:last-child {
+          break-after: auto;
+          page-break-after: auto;
+        }
+        .event {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          gap: 4px;
+          padding: 8px 10px;
+        }
+        .event-main {
+          display: block;
+        }
+        .meta {
+          display: inline;
+          font-size: 11px;
+          line-height: 1.25;
+        }
+        .meta span,
+        .meta strong {
+          display: inline;
+          margin-right: 8px;
+          font-size: 11px;
+        }
+        .description {
+          display: inline;
+          color: #1d2420;
+          font-size: 11px;
+          line-height: 1.25;
+        }
+        .description::before {
+          content: "- ";
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow"><a href="https://www.jdb.net/blog/how-i-built-a-complete-travel-planner-app-this-weekend-using-chatgpt-55-no-coding-required" target="_blank" rel="noopener noreferrer">Travel Log App Blog</a></p>
+          <h1>Trips</h1>
+        </div>
+        <div class="header-actions">
+          <button type="button" data-action="backup">BACKUP</button>
+          <button type="button" data-action="readme">READ ME</button>
+          <button type="button" data-action="export-text">TXT</button>
+          <button type="button" data-action="export">PDF</button>
+        </div>
+      </header>
+
+      <section class="search">
+        <input type="search" placeholder="Search entries" aria-label="Search entries">
+        <button type="button" data-action="import">Import</button>
+      </section>
+
+      <section class="trips">
+        <section class="trip">
+          <div class="trip-heading">
+            <h2>Alaska Trip</h2>
+            <span>3 events</span>
+          </div>
+          <div class="events">
+            <article class="event">
+              <div class="meta"><span>Thu, Apr 8, 2027</span><strong><a class="location-link" href="./place.html?location=Seattle&trip=Alaska%20Trip">Seattle</a></strong></div>
+              <p class="description">Fly to Seattle</p>
+            </article>
+            <article class="event">
+              <div class="meta"><span>Sat, Apr 10, 2027</span><strong>Ship</strong></div>
+              <p class="description">Board Ship</p>
+            </article>
+            <article class="event">
+              <div class="meta"><span>Sat, Apr 17, 2027</span><strong>LAX</strong></div>
+              <p class="description">Fly to LAX</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="trip">
+          <div class="trip-heading">
+            <h2>Spain 2027 Trip</h2>
+            <span>14 events</span>
+          </div>
+          <div class="events">
+            <article class="event"><div class="meta"><span>Mon, May 3, 2027</span><strong>LAX</strong></div><p class="description">LAX to Madrid</p></article>
+            <article class="event"><div class="meta"><span>Mon, May 3, 2027</span><strong><a class="location-link" href="./place.html?location=Madrid&trip=Spain%202027%20Trip">Madrid</a></strong></div><p class="description">LAX to Madrid</p></article>
+            <article class="event"><div class="meta"><span>Tue, May 4, 2027</span><span>1:50 PM</span><strong>Madrid</strong></div><p class="description">Arrive Madrid</p></article>
+            <article class="event"><div class="meta"><span>Tue, May 4, 2027</span><span>5:50 PM</span><strong>Bilbao</strong></div><p class="description">Arrive Bilbao</p></article>
+            <article class="event"><div class="meta"><span>Tue, May 4, 2027</span><strong>Radisson Collection</strong></div><p class="description">Hotel: Radisson Collection</p></article>
+            <article class="event"><div class="meta"><span>Wed, May 5, 2027</span><strong>Bilbao</strong></div><p class="description">Bilbao all day</p></article>
+            <article class="event"><div class="meta"><span>Thu, May 6, 2027</span><span>10:00 AM</span><strong>Train</strong></div><p class="description">Board Train</p></article>
+            <article class="event"><div class="meta"><span>Thu, May 6, 2027</span><strong>Bilbao</strong></div><p class="description">Tour of Bilbao provided by train</p></article>
+            <article class="event"><div class="meta"><span>Fri, May 7, 2027</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Sat, May 8, 2027</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Sun, May 9, 2027</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Mon, May 10, 2027</span><strong>Train</strong></div><p class="description">Train</p></article>
+            <article class="event"><div class="meta"><span>Tue, May 11, 2027</span><strong>Santiago</strong></div><p class="description">Arrive Santiago lunch with train</p></article>
+            <article class="event"><div class="meta"><span>Tue, May 11, 2027</span><strong>Parador</strong></div><p class="description">Hotel: Parador (1 night)</p></article>
+          </div>
+        </section>
+      </section>
+    </main>
+    <div class="top-floating-actions">
+      <button class="fab" type="button" data-action="add">Add Event</button>
+      <button class="fab settings-fab" type="button" data-action="settings" aria-label="Settings" title="Settings">&#9881;</button>
+    </div>
+    <script src="./travel-log.js?v=54" defer></script>
+  </body>
+</html>
