@@ -88,9 +88,9 @@ This means:
 - Import splits multi-location events into separate entries when possible.
 - Import screen has a guarded reload option that clears local data and restores the built-in sample itinerary.
 - TXT export downloads a shareable text itinerary that can be imported back into the app.
-- BACKUP opens a backup/restore choice. Backup exports all entries, trip resources, app settings, links, and attachments to one file, using gzip when the browser supports native `CompressionStream`; restore accepts JSON or gzip backups.
+- BACKUP opens a backup/restore choice. Backup includes a trip dropdown (default **ALL TRIPS**, or one trip). It exports matching entries, trip resources, app settings, links, and attachments to one file, using gzip when the browser supports native `CompressionStream`; restore still replaces all data from the selected backup file (JSON or gzip).
 - PDF export opens a new print-friendly tab and automatically launches the print/PDF dialog.
-- PDF export asks whether to include notes each time.
+- PDF export includes a trip dropdown (default **ALL TRIPS**, or one trip), then asks whether to include notes.
 - PDF output has one page per trip.
 - PDF keeps events together; events should not split across pages.
 - PDF event rows show location, date, time, and description on one line; the date appears only on the first event of each day.
@@ -118,7 +118,15 @@ These are only used when no saved browser data exists.
 
 ## PDF Export Notes
 
-PDF export is handled by `openPdfTab()` in `travel-log.js`.
+PDF export is handled by `askPdfNotes()` + `openPdfTab()` in `travel-log.js`.
+
+Trip scope:
+
+- Dropdown defaults to **ALL TRIPS**.
+- Selecting one trip filters events before rendering the print tab.
+- Helpers: `renderTripScopePicker()`, `selectedTripScope()`, `entriesForTripScope()`.
+
+Backup scope uses the same picker pattern via `scopeDataForTrip()` in `createBackupFile()`. Single-trip backups still restore as a full replace of browser data (they do not merge into existing trips).
 
 Current PDF styling highlights:
 
@@ -186,7 +194,7 @@ http://<server-ip>/travel-log/
 
 ## Good Future Improvements
 
-- Add richer backup options such as selective trip restore or attachment size reporting.
+- Add selective trip restore (merge one trip from a backup without replacing all data) or attachment size reporting.
 - Add a reset sample data button guarded by confirmation.
 - Add richer import review editing before approval.
 - Add trip ordering controls.

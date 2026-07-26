@@ -475,21 +475,28 @@
 
   function showBackupChoice() {
     showModal(
-      '<section class="modal"><h2>Backup</h2><p class="description">Back up or restore all trips, events, links, and attachments on this device.</p><input name="backupFile" type="file" accept=".json,.gz,.tlbackup,application/json,application/gzip" hidden><div class="modal-actions"><button type="button" data-action="create-backup">Backup</button><button type="button" data-action="choose-restore-file">Restore</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+      '<section class="modal"><h2>Backup</h2><p class="description">Back up or restore trips, events, links, and attachments on this device. Choose a trip for backup, or leave ALL TRIPS selected.</p>' +
+        renderTripScopePicker("backupTripScope", "Trips to back up") +
+        '<input name="backupFile" type="file" accept=".json,.gz,.tlbackup,application/json,application/gzip" hidden><div class="modal-actions"><button type="button" data-action="create-backup">Backup</button><button type="button" data-action="choose-restore-file">Restore</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
     );
   }
 
   function createBackupFile() {
+    var tripName = selectedTripScope("backupTripScope");
+    var scoped = scopeDataForTrip(tripName);
     var payload = {
       app: "travel-log",
       version: 2,
       exportedAt: new Date().toISOString(),
-      entries: normalizeEntries(entries),
-      tripResources: normalizeTripResources(tripResources),
+      tripScope: tripName || "ALL TRIPS",
+      entries: normalizeEntries(scoped.entries),
+      tripResources: normalizeTripResources(scoped.tripResources),
       appSettings: normalizeSettings(appSettings)
     };
     var json = JSON.stringify(payload);
-    var filename = "travel-log-backup-" + today() + ".json";
+    var filename = "travel-log-backup-" +
+      (tripName ? slugForFilename(tripName) + "-" : "") +
+      today() + ".json";
     if (window.CompressionStream) {
       compressText(json).then(function (blob) {
         downloadBlob(blob, filename + ".gz");
@@ -540,11 +547,15 @@
 
   function askPdfNotes() {
     showModal(
-      '<section class="modal"><h2>PDF Notes</h2><p class="description">Include entry notes in this PDF?</p><div class="modal-actions"><button type="button" data-action="export-pdf-with-notes">Show Notes</button><button type="button" data-action="export-pdf-without-notes">Hide Notes</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+      '<section class="modal"><h2>PDF Export</h2><p class="description">Choose which trip to include, then whether entry notes appear in the PDF.</p>' +
+        renderTripScopePicker("pdfTripScope", "Trips to include") +
+        '<div class="modal-actions"><button type="button" data-action="export-pdf-with-notes">Show Notes</button><button type="button" data-action="export-pdf-without-notes">Hide Notes</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
     );
   }
 
   function openPdfTab(includeNotes) {
+    var tripName = selectedTripScope("pdfTripScope");
+    var list = entriesForTripScope(tripName);
     closeModal();
     var win = window.open("", "_blank");
     if (!win) {
@@ -552,16 +563,18 @@
       return;
     }
 
-    var html = '<!doctype html><html><head><title>Travel Log PDF</title><style>' +
+    var titleScope = tripName || "All Trips";
+    var html = '<!doctype html><html><head><title>Travel Log PDF — ' + esc(titleScope) + '</title><style>' +
       'body{font-family:Arial,Helvetica,sans-serif;color:#1d2420;margin:24px}' +
       'h1{font-size:12px;margin:0 0 18px;text-align:right;font-weight:400}h2{font-size:18px;margin:0 0 10px}' +
       '.trip{break-after:page;page-break-after:always;margin-bottom:18px}.trip:last-child{break-after:auto;page-break-after:auto}' +
       '.event{break-inside:avoid;page-break-inside:avoid;padding:3px 0;font-size:14px;line-height:1.3}' +
       '.line{display:grid;grid-template-columns:18px 1in 1.25in .65in 1fr;column-gap:4px;align-items:start}.line span{min-height:1em}.notes{margin:4px 0 0 1.2in;color:#444;padding-left:10px;border-left:3px solid #ddd}.not-booked{color:#b42318;font-weight:800}.alert-badge{display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:#b42318;color:#fff;font-size:12px;font-weight:800}.attachment-suffix{color:#777;font-weight:700}' +
       '@media print{.print-note{display:none}}' +
-      '</style></head><body><p class="print-note">Opening PDF dialog...</p><h1>Travel Log Printed: ' + esc(formatPrintedAt(new Date())) + '</h1>';
+      '</style></head><body><p class="print-note">Opening PDF dialog...</p><h1>Travel Log Printed: ' + esc(formatPrintedAt(new Date())) +
+      (tripName ? " — " + esc(tripName) : "") + "</h1>";
 
-    groupByTrip(entries).forEach(function (group) {
+    groupByTrip(list).forEach(function (group) {
       var trip = group[0];
       html += '<section class="trip"><h2>' + esc(trip) + '</h2>';
       var previous = null;
@@ -587,6 +600,60 @@
     win.setTimeout(function () {
       win.print();
     }, 250);
+  }
+
+  function knownTripNames() {
+    return unique(entries.map(function (entry) {
+      return entry.trip || "";
+    }).filter(Boolean)).sort(function (a, b) {
+      return a.localeCompare(b);
+    });
+  }
+
+  function renderTripScopePicker(selectName, labelText) {
+    var trips = knownTripNames();
+    var options = '<option value="" selected>ALL TRIPS</option>' + trips.map(function (trip) {
+      return '<option value="' + esc(trip) + '">' + esc(trip) + "</option>";
+    }).join("");
+    return '<div class="field"><label for="' + esc(selectName) + '">' + esc(labelText || "Trips") +
+      '</label><select id="' + esc(selectName) + '" name="' + esc(selectName) + '">' + options + "</select></div>";
+  }
+
+  function selectedTripScope(selectName) {
+    var select = document.querySelector('[name="' + selectName + '"]');
+    return select ? String(select.value || "").trim() : "";
+  }
+
+  function entriesForTripScope(tripName) {
+    if (!tripName) return entries.slice();
+    return entries.filter(function (entry) {
+      return entry.trip === tripName;
+    });
+  }
+
+  function scopeDataForTrip(tripName) {
+    if (!tripName) {
+      return {
+        entries: entries.slice(),
+        tripResources: tripResources
+      };
+    }
+    var scopedEntries = entriesForTripScope(tripName);
+    var scopedResources = {};
+    if (tripResources[tripName]) scopedResources[tripName] = tripResources[tripName];
+    return {
+      entries: scopedEntries,
+      tripResources: scopedResources
+    };
+  }
+
+  function slugForFilename(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "trip";
   }
 
   function exportTextFile() {
@@ -932,10 +999,10 @@
       "- Reload the built-in sample itinerary from the import screen",
       "- Persistent browser storage with IndexedDB, plus `localStorage` compatibility for existing browser data",
       "- PDF export in a new print-friendly tab",
-      "- PDF export asks whether to include notes each time",
+      "- PDF export lets you choose ALL TRIPS or one trip, then whether to include notes",
       "- PDF export marks events with attachments by appending `-A` to the description, but does not include the attachment files",
       "- PDF rows display location, date, time, and description, with the date shown only on the first event of each day",
-      "- BACKUP can export or restore all entries, trip resources, app settings, links, and attachments as one mobile-friendly backup file",
+      "- BACKUP can export or restore entries, trip resources, app settings, links, and attachments; backup lets you choose ALL TRIPS or one trip",
       "- PDF page break between trips",
       "- PDF keeps each event together on one page",
       "- Highlights `not booked` with a red alert marker and bold red text",
@@ -987,12 +1054,16 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=54\" defer></script>",
+      "<script src=\"./travel-log.js?v=56\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
       "",
-      "Note: this README text is embedded in `travel-log.js` for the READ ME button. Update `readmeText()` whenever `README.md` changes."
+      "The `READ ME` button uses an embedded copy of this file in `travel-log.js`. Update `readmeText()` whenever `README.md` changes.",
+      "",
+      "## GitHub",
+      "",
+      "Source: https://github.com/jdb-net-git/travel-log-app"
     ].join("\n");
   }
 

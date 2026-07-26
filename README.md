@@ -51,10 +51,10 @@ Open `index.html` in a browser.
 - Reload the built-in sample itinerary from the import screen
 - Persistent browser storage with IndexedDB, plus `localStorage` compatibility for existing browser data
 - PDF export in a new print-friendly tab
-- PDF export asks whether to include notes each time
+- PDF export lets you choose ALL TRIPS or one trip, then whether to include notes
 - PDF export marks events with attachments by appending `-A` to the description, but does not include the attachment files
 - PDF rows display location, date, time, and description, with the date shown only on the first event of each day
-- BACKUP can export or restore all entries, trip resources, links, and attachments as one mobile-friendly backup file
+- BACKUP can export or restore entries, trip resources, links, and attachments; backup lets you choose ALL TRIPS or one trip
 - PDF page break between trips
 - PDF keeps each event together on one page
 - Highlights `not booked` with a red alert marker and bold red text
@@ -106,9 +106,13 @@ http://your-server/travel-log/
 When changing `travel-log.js`, bump the script version in `index.html`, for example:
 
 ```html
-<script src="./travel-log.js?v=54" defer></script>
+<script src="./travel-log.js?v=56" defer></script>
 ```
 
 This helps browsers load the newest script instead of using a cached copy.
 
 The `READ ME` button uses an embedded copy of this file in `travel-log.js`. Update `readmeText()` whenever `README.md` changes.
+
+## GitHub
+
+Source: https://github.com/jdb-net-git/travel-log-app
