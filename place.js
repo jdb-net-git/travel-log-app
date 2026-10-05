@@ -323,13 +323,15 @@
   function renderCalendar(entries) {
     var grid = document.getElementById("calendar-grid");
     if (!grid) return;
-    var base = entries.length ? new Date(entries[0].date + "T12:00:00") : new Date();
+    var base = (entries.length && entryDateOrNull(entries[0].date)) || new Date();
     var activeDays = {};
-    entries.forEach(function (entry) {
-      activeDays[Number(entry.date.slice(8, 10))] = true;
-    });
     var month = base.getMonth();
     var year = base.getFullYear();
+    entries.forEach(function (entry) {
+      var date = entryDateOrNull(entry.date);
+      if (!date || date.getMonth() !== month || date.getFullYear() !== year) return;
+      activeDays[date.getDate()] = true;
+    });
     var first = new Date(year, month, 1);
     var last = new Date(year, month + 1, 0);
     var names = ["S", "M", "T", "W", "T", "F", "S"];
@@ -412,13 +414,33 @@
     if (element) element.textContent = value;
   }
 
+  function entryDateOrNull(value) {
+    var text = String(value || "");
+    var parsed = new Date(text + "T12:00:00");
+    if (!isFinite(parsed.getTime())) return null;
+    var match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return parsed;
+    var year = Number(match[1]);
+    var month = Number(match[2]);
+    var day = Number(match[3]);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return null;
+    return parsed;
+  }
+
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var parsed = entryDateOrNull(value);
+    if (!parsed) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parsed);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var hours = Number(parts[0]);
+    var minutes = Number(parts[1]);
+    if (!isFinite(hours) || !isFinite(minutes)) return String(value || "");
+    var parsed = new Date(2026, 0, 1, hours, minutes);
+    if (!isFinite(parsed.getTime()) || parsed.getHours() !== hours || parsed.getMinutes() !== minutes) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(parsed);
   }
 
   function esc(value) {
