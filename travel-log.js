@@ -103,7 +103,7 @@
       var tripEntries = sortByDate(group[1]);
       html += '<section class="trip"><div class="trip-heading"><div><h2>' + esc(trip) + "</h2><span>" + tripEntries.length + (tripEntries.length === 1 ? " event" : " events") + '</span></div><button class="edit-button" type="button" data-action="edit-trip" data-trip="' + esc(trip) + '">Edit</button></div>' + renderTripResources(trip) + '<div class="events">';
       tripEntries.forEach(function (entry) {
-        html += '<article class="event' + (hasNotBooked(entry) ? " event-alert" : "") + '">' + (hasNotBooked(entry) ? '<span class="alert-badge" aria-label="Attention">!</span>' : "") + '<div class="event-main"><div><div class="meta">' + (hasResources(entry) ? '<span class="attachment-marker" title="Has attachment or link">A</span>' : "") + '<span>' + formatDate(entry.date) + "</span>" + (entry.time ? "<span>" + formatTime(entry.time) + "</span>" : "") + '<strong><a class="location-link" href="' + locationPageUrl(entry) + '">' + highlightNotBooked(entry.location) + '</a></strong></div><p class="description"><a href="' + descriptionSearchUrl(entry.description) + '" target="_blank" rel="noopener noreferrer">' + highlightNotBooked(entry.description) + "</a></p>" + (entry.notes ? '<p class="notes">' + highlightNotBooked(entry.notes) + "</p>" : "") + renderEntryResources(entry) + '</div><button class="edit-button" type="button" data-action="edit-entry" data-id="' + esc(entry.id) + '">Edit</button></div></article>';
+        html += '<article class="event' + (hasNotBooked(entry) ? " event-alert" : "") + '">' + (hasNotBooked(entry) ? '<span class="alert-badge" aria-label="Attention">!</span>' : "") + '<div class="event-main"><div><div class="meta">' + (hasResources(entry) ? '<span class="attachment-marker" title="Has attachment or link">A</span>' : "") + '<span>' + esc(formatDate(entry.date)) + "</span>" + (entry.time ? "<span>" + esc(formatTime(entry.time)) + "</span>" : "") + '<strong><a class="location-link" href="' + locationPageUrl(entry) + '">' + highlightNotBooked(entry.location) + '</a></strong></div><p class="description"><a href="' + descriptionSearchUrl(entry.description) + '" target="_blank" rel="noopener noreferrer">' + highlightNotBooked(entry.description) + "</a></p>" + (entry.notes ? '<p class="notes">' + highlightNotBooked(entry.notes) + "</p>" : "") + renderEntryResources(entry) + '</div><button class="edit-button" type="button" data-action="edit-entry" data-id="' + esc(entry.id) + '">Edit</button></div></article>';
       });
       html += "</div></section>";
     });
@@ -240,7 +240,7 @@
 
     results.hidden = false;
     results.innerHTML = candidates.map(function (entry, index) {
-      return '<label class="approval-item"><input type="checkbox" data-import-index="' + index + '" checked><span><strong>' + esc(entry.trip) + '</strong><br>' + formatDate(entry.date) + (entry.time ? " " + formatTime(entry.time) : "") + " | " + esc(entry.location) + '<br>' + esc(entry.description) + '</span></label>';
+      return '<label class="approval-item"><input type="checkbox" data-import-index="' + index + '" checked><span><strong>' + esc(entry.trip) + '</strong><br>' + esc(formatDate(entry.date)) + (entry.time ? " " + esc(formatTime(entry.time)) : "") + " | " + esc(entry.location) + '<br>' + esc(entry.description) + '</span></label>';
     }).join("");
     window.pendingImportEntries = candidates;
   }
@@ -777,12 +777,41 @@
 
   function parseExportFields(value) {
     var fields = {};
-    value.split(/\s+\|\s+/).forEach(function (part) {
+    splitExportParts(value).forEach(function (part) {
       var fieldMatch = part.match(/^([A-Za-z]+):\s*(.*)$/);
       if (!fieldMatch) return;
       fields[fieldMatch[1]] = importValue(fieldMatch[2]);
     });
     return fields;
+  }
+
+  function splitExportParts(value) {
+    var parts = [];
+    var current = "";
+    var text = String(value || "");
+    var i = 0;
+    while (i < text.length) {
+      if (text.charAt(i) === "\\") {
+        current += text.charAt(i);
+        i += 1;
+        if (i < text.length) {
+          current += text.charAt(i);
+          i += 1;
+        }
+        continue;
+      }
+      var delimiter = text.slice(i).match(/^\s+\|\s+/);
+      if (delimiter) {
+        parts.push(current);
+        current = "";
+        i += delimiter[0].length;
+        continue;
+      }
+      current += text.charAt(i);
+      i += 1;
+    }
+    parts.push(current);
+    return parts;
   }
 
   function normalizeImportLine(line) {
@@ -1363,13 +1392,33 @@
     return new Date(entry.date + "T" + (entry.time || "00:00")).getTime();
   }
 
+  function entryDateOrNull(value) {
+    var text = String(value || "");
+    var parsed = new Date(text + "T12:00:00");
+    if (!isFinite(parsed.getTime())) return null;
+    var match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return parsed;
+    var year = Number(match[1]);
+    var month = Number(match[2]);
+    var day = Number(match[3]);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return null;
+    return parsed;
+  }
+
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var parsed = entryDateOrNull(value);
+    if (!parsed) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parsed);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var hours = Number(parts[0]);
+    var minutes = Number(parts[1]);
+    if (!isFinite(hours) || !isFinite(minutes)) return String(value || "");
+    var parsed = new Date(2026, 0, 1, hours, minutes);
+    if (!isFinite(parsed.getTime()) || parsed.getHours() !== hours || parsed.getMinutes() !== minutes) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(parsed);
   }
 
   function formatPrintedAt(value) {
@@ -1516,5 +1565,15 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseExportLine = parseExportLine;
+    testHost.TRAVEL_LOG_TEST_HOOKS.exportValue = exportValue;
+    testHost.TRAVEL_LOG_TEST_HOOKS.normalizeImportLine = normalizeImportLine;
+    testHost.TRAVEL_LOG_TEST_HOOKS.formatDate = formatDate;
+    testHost.TRAVEL_LOG_TEST_HOOKS.formatTime = formatTime;
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
   }
 })();
