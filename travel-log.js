@@ -8,6 +8,8 @@
   var tripResources = localState.tripResources || {};
   var appSettings = localState.appSettings || defaultSettings();
   var storageReady = false;
+  var pendingSave = false;
+  var loadedFromStorage = false;
 
   function sampleEntries() {
     return [
@@ -91,7 +93,6 @@
   function render() {
     var container = document.querySelector(".trips");
     if (!container) return;
-    saveEntries();
     var searchInput = document.querySelector('[type="search"]');
     var query = searchInput ? searchInput.value.trim().toLowerCase() : "";
     var visibleEntries = query ? entries.filter(function (entry) {
@@ -223,6 +224,7 @@
     entries = replaceAll ? imported : entries.concat(imported);
     window.pendingImportFileText = "";
     closeModal();
+    saveEntries();
     render();
   }
 
@@ -255,6 +257,7 @@
     }
     window.pendingImportEntries = [];
     closeModal();
+    saveEntries();
     render();
   }
 
@@ -326,6 +329,7 @@
         entries.push(next);
       }
       closeModal();
+      saveEntries();
       render();
     }).catch(function () {
       saveButton.disabled = false;
@@ -342,6 +346,7 @@
       return entry.id !== id;
     });
     closeModal();
+    saveEntries();
     render();
   }
 
@@ -400,6 +405,7 @@
       };
     }
     closeModal();
+    saveEntries();
     render();
   }
 
@@ -426,6 +432,7 @@
         links: links
       };
       closeModal();
+      saveEntries();
       render();
     }).catch(function () {
       saveButton.disabled = false;
@@ -470,6 +477,7 @@
     });
     delete tripResources[originalTrip];
     closeModal();
+    saveEntries();
     render();
   }
 
@@ -1165,18 +1173,25 @@
         entries = indexedState.entries;
         tripResources = indexedState.tripResources || {};
         appSettings = indexedState.appSettings || defaultSettings();
+        loadedFromStorage = true;
       } else if (localState.entries) {
+        loadedFromStorage = true;
         return saveIndexedState(localState);
       }
     }).catch(function () {
       return null;
     }).then(function () {
       storageReady = true;
+      if (pendingSave || !loadedFromStorage) return saveEntries();
     });
   }
 
   function saveEntries() {
-    if (!storageReady) return Promise.resolve();
+    if (!storageReady) {
+      pendingSave = true;
+      return Promise.resolve();
+    }
+    pendingSave = false;
     var state = {
       entries: normalizeEntries(entries),
       tripResources: normalizeTripResources(tripResources),
@@ -1516,5 +1531,14 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : null;
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.render = render;
+    testHost.TRAVEL_LOG_TEST_HOOKS.saveEntries = saveEntries;
+    testHost.TRAVEL_LOG_TEST_HOOKS.entries = function () { return entries; };
+    testHost.TRAVEL_LOG_TEST_HOOKS.setEntries = function (next) { entries = next; };
+    testHost.TRAVEL_LOG_TEST_HOOKS.isReady = function () { return storageReady; };
   }
 })();
