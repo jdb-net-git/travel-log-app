@@ -415,16 +415,12 @@
     var links = newLink ? keptLinks.concat([newLink]) : keptLinks;
     saveButton.disabled = true;
     saveButton.textContent = "Saving";
-    readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
+    return readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
       entries = entries.map(function (entry) {
         if (entry.trip !== originalTrip) return entry;
         return item(nextTrip, entry.date, entry.time, entry.location, entry.description, entry.notes, entry.id, entry.attachments, entry.links);
       });
-      if (nextTrip !== originalTrip) delete tripResources[originalTrip];
-      tripResources[nextTrip] = {
-        attachments: keptAttachments.concat(newAttachments),
-        links: links
-      };
+      applyRenamedTripResources(originalTrip, nextTrip, keptAttachments.concat(newAttachments), links);
       closeModal();
       render();
     }).catch(function () {
@@ -1516,5 +1512,28 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  function applyRenamedTripResources(originalTrip, nextTrip, attachments, links) {
+    var mergedAttachments = attachments.slice();
+    var mergedLinks = links.slice();
+    if (nextTrip !== originalTrip && tripResources[nextTrip]) {
+      var existing = tripResourceRecord(nextTrip);
+      mergedAttachments = existing.attachments.concat(mergedAttachments);
+      mergedLinks = existing.links.concat(mergedLinks);
+    }
+    if (nextTrip !== originalTrip) delete tripResources[originalTrip];
+    tripResources[nextTrip] = {
+      attachments: mergedAttachments,
+      links: mergedLinks
+    };
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.saveTrip = saveTrip;
+    testHost.TRAVEL_LOG_TEST_HOOKS.tripResources = function () {
+      return JSON.parse(JSON.stringify(tripResources));
+    };
   }
 })();
