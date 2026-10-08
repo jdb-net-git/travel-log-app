@@ -206,7 +206,7 @@
 
   function confirmImportFileReplace() {
     showModal(
-      '<section class="modal"><h2>Replace All Data?</h2><p class="description">This will permanently erase the current trips and events in this browser, then load the file.</p><div class="modal-actions"><button class="delete-button" type="button" data-action="confirm-import-file-replace">Replace</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
+      '<section class="modal"><h2>Replace All Data?</h2><p class="description">This will permanently erase the current trips, events, links, and attachments in this browser, then load the file.</p><div class="modal-actions"><button class="delete-button" type="button" data-action="confirm-import-file-replace">Replace</button><button type="button" data-action="close-modal">Cancel</button></div></section>'
     );
   }
 
@@ -220,7 +220,12 @@
       showModal('<section class="modal"><h2>No Events Found</h2><p class="description">No dated events were found in the file.</p><div class="modal-actions"><button type="button" data-action="close-modal">Close</button></div></section>');
       return;
     }
-    entries = replaceAll ? imported : entries.concat(imported);
+    if (replaceAll) {
+      entries = imported;
+      tripResources = {};
+    } else {
+      entries = entries.concat(imported);
+    }
     window.pendingImportFileText = "";
     closeModal();
     render();
