@@ -8,6 +8,7 @@
   var tripResources = localState.tripResources || {};
   var appSettings = localState.appSettings || defaultSettings();
   var storageReady = false;
+  var queuedClicks = [];
 
   function sampleEntries() {
     return [
@@ -33,13 +34,30 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     initializeStorage().then(function () {
+      // The stored snapshot is already in memory. Replay clicks that arrived
+      // while it was loading, then paint. Saving before the replay would
+      // persist the snapshot and could commit after the click.
+      var clicks = queuedClicks.splice(0);
+      clicks.forEach(function (event) {
+        if (!event || !event.target || !event.target.closest) return;
+        onClick(event);
+      });
       render();
     });
-    document.addEventListener("click", onClick);
+    document.addEventListener("click", function (event) {
+      if (!storageReady) {
+        queuedClicks.push(event);
+        return;
+      }
+      onClick(event);
+    });
     document.addEventListener("change", onChange);
     var searchInput = document.querySelector('[type="search"]');
     if (searchInput) {
-      searchInput.addEventListener("input", render);
+      searchInput.addEventListener("input", function () {
+        if (!storageReady) return;
+        render();
+      });
     }
   });
 
@@ -1054,7 +1072,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
