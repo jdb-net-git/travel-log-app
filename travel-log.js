@@ -168,10 +168,7 @@
     var modal = event.target.closest(".modal");
     var method = modal.querySelector('[name="descriptionSearchMethod"]').value;
     appSettings = normalizeSettings({ descriptionSearchMethod: method });
-    saveEntries().then(function () {
-      closeModal();
-      render();
-    });
+    persistAndRender();
   }
 
   function chooseImportFile() {
@@ -222,8 +219,7 @@
     }
     entries = replaceAll ? imported : entries.concat(imported);
     window.pendingImportFileText = "";
-    closeModal();
-    render();
+    persistAndRender();
   }
 
   function parseImportText() {
@@ -254,8 +250,7 @@
       entries.push(pending[Number(checked[i].getAttribute("data-import-index"))]);
     }
     window.pendingImportEntries = [];
-    closeModal();
-    render();
+    persistAndRender();
   }
 
   function confirmReloadSampleData() {
@@ -273,10 +268,7 @@
       localStorage.removeItem(storageMetaKey);
     } catch (error) {
     }
-    saveEntries().then(function () {
-      closeModal();
-      render();
-    });
+    persistAndRender();
   }
 
   function showTripForm(tripName) {
@@ -325,9 +317,8 @@
       } else {
         entries.push(next);
       }
-      closeModal();
-      render();
-    }).catch(function () {
+      return persistAndRender();
+    }, function () {
       saveButton.disabled = false;
       saveButton.textContent = "Save";
       showMessage("Attachment Error", "One or more attachments could not be read.");
@@ -341,8 +332,7 @@
     entries = entries.filter(function (entry) {
       return entry.id !== id;
     });
-    closeModal();
-    render();
+    persistAndRender();
   }
 
   function confirmDeleteEntry(event) {
@@ -399,8 +389,7 @@
         })
       };
     }
-    closeModal();
-    render();
+    persistAndRender();
   }
 
   function saveTrip(event) {
@@ -425,9 +414,8 @@
         attachments: keptAttachments.concat(newAttachments),
         links: links
       };
-      closeModal();
-      render();
-    }).catch(function () {
+      return persistAndRender();
+    }, function () {
       saveButton.disabled = false;
       saveButton.textContent = "Save";
       showMessage("Attachment Error", "One or more attachments could not be read.");
@@ -469,8 +457,7 @@
       return entry.trip !== originalTrip;
     });
     delete tripResources[originalTrip];
-    closeModal();
-    render();
+    persistAndRender();
   }
 
   function showBackupChoice() {
@@ -536,10 +523,7 @@
       tripResources = normalizeTripResources(backup.tripResources || {});
       appSettings = normalizeSettings(backup.appSettings || {});
       window.pendingBackupRestoreFile = null;
-      return saveEntries().then(function () {
-        closeModal();
-        render();
-      });
+      return persistAndRender();
     }).catch(function () {
       showMessage("Restore Failed", "That backup file could not be restored.");
     });
@@ -1175,25 +1159,69 @@
     });
   }
 
+  var saveQueue = Promise.resolve(true);
+
+  function persistAndRender() {
+    return saveEntries().then(function (saved) {
+      closeModal();
+      render();
+      if (!saved) {
+        showMessage("Storage Full", "The browser rejected storing this change. Free some site storage, then save again before leaving this page.");
+      }
+    });
+  }
+
   function saveEntries() {
-    if (!storageReady) return Promise.resolve();
+    if (!storageReady) return Promise.resolve(true);
     var state = {
       entries: normalizeEntries(entries),
       tripResources: normalizeTripResources(tripResources),
       appSettings: normalizeSettings(appSettings),
       updatedAt: Date.now()
     };
+    // Attachments often exceed the localStorage quota. IndexedDB is then the only copy,
+    // and its transaction is aborted if the page changes before it commits. Keep writes
+    // in order and tell the caller when neither store accepted the snapshot.
+    var localOk = writeLocalState(state);
+    return enqueueIndexedWrite(state).then(function (indexedOk) {
+      return localOk || indexedOk;
+    });
+  }
+
+  function writeLocalState(state) {
+    var keys = [storageKey, storageKey + "-trips", storageKey + "-settings", storageMetaKey];
+    var previous = [];
+    var index;
     try {
+      for (index = 0; index < keys.length; index += 1) previous.push(localStorage.getItem(keys[index]));
       localStorage.setItem(storageKey, JSON.stringify(state.entries));
       localStorage.setItem(storageKey + "-trips", JSON.stringify(state.tripResources));
       localStorage.setItem(storageKey + "-settings", JSON.stringify(state.appSettings));
       localStorage.setItem(storageMetaKey, JSON.stringify({ updatedAt: state.updatedAt }));
+      return true;
     } catch (error) {
-      // Mobile browsers can reject larger backups with attachments. IndexedDB below is the durable path.
+      // Restore entries before the larger trip blob so a quota failure cannot leave a new
+      // itinerary paired with an older updatedAt. A timestamp tie would reload the old database copy.
+      for (index = 0; index < previous.length; index += 1) {
+        try {
+          if (previous[index] === null || typeof previous[index] === "undefined") localStorage.removeItem(keys[index]);
+          else localStorage.setItem(keys[index], previous[index]);
+        } catch (restoreError) {}
+      }
+      return false;
     }
-    return saveIndexedState(state).catch(function () {
-      return null;
+  }
+
+  function enqueueIndexedWrite(state) {
+    var write = saveQueue.then(function () {
+      return saveIndexedState(state).then(function () {
+        return true;
+      });
+    }).catch(function () {
+      return false;
     });
+    saveQueue = write;
+    return write;
   }
 
   function loadEntries() {
@@ -1243,19 +1271,28 @@
   }
 
   function saveIndexedState(state) {
-    if (!window.indexedDB) return Promise.resolve();
+    if (!window.indexedDB) return Promise.reject(new Error("IndexedDB unavailable"));
     return openDatabase().then(function (db) {
       return new Promise(function (resolve, reject) {
+        var settled = false;
+        function finish(ok) {
+          if (settled) return;
+          settled = true;
+          if (ok) resolve();
+          else reject(transaction.error || new Error("IndexedDB save failed"));
+        }
         var transaction = db.transaction(databaseStore, "readwrite");
-        transaction.oncomplete = function () { resolve(); };
-        transaction.onerror = function () { reject(transaction.error); };
-        transaction.objectStore(databaseStore).put({
+        transaction.oncomplete = function () { finish(true); };
+        transaction.onerror = function () { finish(false); };
+        transaction.onabort = function () { finish(false); };
+        var request = transaction.objectStore(databaseStore).put({
           id: storageKey,
           entries: normalizeEntries(state.entries),
           tripResources: normalizeTripResources(state.tripResources || {}),
           appSettings: normalizeSettings(state.appSettings || {}),
           updatedAt: Number(state.updatedAt || Date.now())
         });
+        request.onerror = function () { finish(false); };
       });
     });
   }
@@ -1516,5 +1553,14 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : null;
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.saveEntries = saveEntries;
+    testHost.TRAVEL_LOG_TEST_HOOKS.persistAndRender = persistAndRender;
+    testHost.TRAVEL_LOG_TEST_HOOKS.setEntries = function (next) { entries = next; };
+    testHost.TRAVEL_LOG_TEST_HOOKS.entries = function () { return entries; };
+    testHost.TRAVEL_LOG_TEST_HOOKS.isReady = function () { return storageReady; };
   }
 })();
