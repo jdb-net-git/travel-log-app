@@ -354,25 +354,37 @@
   }
 
   function loadEntries() {
-    var localEntries = loadLocalEntries();
-    return loadIndexedEntries().then(function (indexedEntries) {
-      return indexedEntries.length ? indexedEntries : localEntries;
+    var localState = loadLocalState();
+    return loadIndexedState().then(function (indexedState) {
+      if (indexedState && Array.isArray(indexedState.entries) && (!localState.entries || indexedState.updatedAt >= localState.updatedAt)) {
+        return indexedState.entries;
+      }
+      return localState.entries || [];
     }).catch(function () {
-      return localEntries;
+      return localState.entries || [];
     });
   }
 
-  function loadLocalEntries() {
+  function loadLocalState() {
     try {
       var raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : [];
+      var meta = {};
+      try {
+        meta = JSON.parse(localStorage.getItem(storageKey + "-meta") || "{}");
+      } catch (error) {
+        meta = {};
+      }
+      return {
+        entries: raw ? JSON.parse(raw) : null,
+        updatedAt: Number(meta.updatedAt || 0)
+      };
     } catch (error) {
-      return [];
+      return { entries: null, updatedAt: 0 };
     }
   }
 
-  function loadIndexedEntries() {
-    if (!window.indexedDB) return Promise.resolve([]);
+  function loadIndexedState() {
+    if (!window.indexedDB) return Promise.resolve(null);
     return new Promise(function (resolve, reject) {
       var request = indexedDB.open(databaseName, 1);
       request.onupgradeneeded = function () {
@@ -388,7 +400,14 @@
         var read = transaction.objectStore(databaseStore).get(storageKey);
         read.onsuccess = function () {
           var value = read.result;
-          resolve(value && Array.isArray(value.entries) ? value.entries : []);
+          if (!value || !Array.isArray(value.entries)) {
+            resolve(null);
+            return;
+          }
+          resolve({
+            entries: value.entries,
+            updatedAt: Number(value.updatedAt || 0)
+          });
         };
         read.onerror = function () { reject(read.error); };
       };
