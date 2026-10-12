@@ -1493,11 +1493,17 @@
   }
 
   function exportValue(value) {
-    return String(value || "").replace(/\r?\n/g, "\\n").replace(/\|/g, "\\|");
+    return String(value || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/\r?\n/g, "\\n")
+      .replace(/\|/g, "\\|");
   }
 
   function importValue(value) {
-    return String(value || "").replace(/\\\|/g, "|").replace(/\\n/g, "\n");
+    return String(value || "").replace(/\\(\\|n|\|)/g, function (_, token) {
+      if (token === "n") return "\n";
+      return token;
+    });
   }
 
   function unique(values) {
@@ -1516,5 +1522,14 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.exportValue = exportValue;
+    testHost.TRAVEL_LOG_TEST_HOOKS.importValue = importValue;
+    testHost.TRAVEL_LOG_TEST_HOOKS.normalizeImportLine = normalizeImportLine;
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseExportLine = parseExportLine;
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
   }
 })();
