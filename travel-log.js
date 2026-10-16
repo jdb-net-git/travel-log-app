@@ -788,7 +788,8 @@
   function normalizeImportLine(line) {
     return String(line || "")
       .replace(/\u00a0/g, " ")
-      .replace(/[•*]+/g, " ")
+      .replace(/^(?:\s*[•*]+\s*)+/, "")
+      .replace(/•+/g, " ")
       .replace(/^\s*[-–—]\s+/, "")
       .replace(/\s+/g, " ")
       .trim();
