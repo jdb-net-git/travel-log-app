@@ -728,7 +728,7 @@
         return;
       }
 
-      var match = line.match(/^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\.?,?\s+)?(\d{1,2})[\/\-.](\d{1,2})\b\s*(.*)$/i);
+      var match = line.match(/^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\.?,?\s+)?(\d{1,2})[\/\-.](\d{1,2})(?:\/((?:19|20)\d{2}|\d{2}))?\b\s*(.*)$/i);
       if (!match) {
         trip = line;
         var yearMatch = line.match(/\b(20\d{2})\b/);
@@ -736,8 +736,13 @@
         return;
       }
 
-      var body = match[3].trim();
+      var body = match[4].trim();
       if (!body) return;
+      if (match[3]) {
+        var explicitYear = Number(match[3]);
+        if (explicitYear < 100) explicitYear += 2000;
+        year = explicitYear;
+      }
       var date = year + "-" + pad(match[1]) + "-" + pad(match[2]);
       var route = body.match(/^([A-Za-z ]+)\s+(?:-|–|—)\s+([A-Za-z ]+)$/);
       if (route) {
@@ -1054,7 +1059,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1516,5 +1521,10 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
   }
 })();
