@@ -113,6 +113,7 @@
   function showForm(id) {
     var editing = findEntry(id);
     var formId = "entry-form-" + createId();
+    var timeField = timeFieldFor(editing && editing.time);
     showModal(
       '<section class="modal entry-modal"><h2>' +
         (editing ? "Edit Entry" : "Add Entry") +
@@ -124,8 +125,9 @@
         esc(editing ? editing.location : "") +
         '"></div><div class="compact-grid"><div class="field"><label for="' + formId + '-date">Date</label><input id="' + formId + '-date" name="date" type="date" value="' +
         esc(editing ? editing.date : today()) +
-        '"></div><div class="field"><label for="' + formId + '-time">Time</label><input id="' + formId + '-time" name="time" type="time" value="' +
-        esc(editing ? editing.time : "") +
+        '"></div><div class="field"><label for="' + formId + '-time">Time</label><input id="' + formId + '-time" name="time" type="' +
+        timeField.type + '" value="' +
+        esc(timeField.value) +
         '"></div></div><div class="field"><label for="' + formId + '-description">Description</label><textarea id="' + formId + '-description" name="description" rows="1" placeholder="What happened?" autocomplete="off" spellcheck="true">' +
         esc(editing ? editing.description : "") +
         '</textarea></div><div class="field"><label for="' + formId + '-notes">Notes</label><textarea id="' + formId + '-notes" name="notes" rows="1" autocomplete="off" spellcheck="true">' +
@@ -306,7 +308,7 @@
     var trip = modal.querySelector('[name="trip"]').value.trim() || "Untitled Trip";
     var location = modal.querySelector('[name="location"]').value.trim() || "Unspecified";
     var date = modal.querySelector('[name="date"]').value || today();
-    var time = modal.querySelector('[name="time"]').value;
+    var time = timeForStorage(modal.querySelector('[name="time"]').value);
     var description = modal.querySelector('[name="description"]').value.trim() || "New travel event";
     var notes = modal.querySelector('[name="notes"]').value.trim();
     var editing = findEntry(id);
@@ -768,7 +770,7 @@
     return item(
       trip,
       match[1] + "-" + match[2] + "-" + match[3],
-      fields.Time || "",
+      timeForStorage(fields.Time),
       fields.Location || "Unspecified",
       fields.Description || "Imported event",
       fields.Notes || ""
@@ -811,14 +813,44 @@
   }
 
   function importTime(text) {
-    var match = text.match(/(?:@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
+    var match = String(text || "").match(/(?:@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
+    if (!match) return "";
+    return canonicalTime(match[1] + ":" + (match[2] || "00") + match[3]);
+  }
+
+  function validHtmlTime(value) {
+    return /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(String(value || ""));
+  }
+
+  // A time input only keeps zero-padded 24-hour values. "9:00" and "1:50 PM" are cleared,
+  // and Save would then store a blank time.
+  function canonicalTime(value) {
+    var text = String(value || "").trim();
+    var match = text.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?\s*(AM|PM)?$/i);
     if (!match) return "";
     var hour = Number(match[1]);
-    var minute = match[2] || "00";
-    var meridiem = match[3].toUpperCase();
+    var minute = Number(match[2] || "0");
+    var meridiem = match[4] ? match[4].toUpperCase() : "";
+    var second = Number(match[3] || "0");
+    if (minute > 59 || second > 59 || hour > (meridiem ? 12 : 23) || (meridiem && hour < 1)) return "";
     if (meridiem === "PM" && hour !== 12) hour += 12;
     if (meridiem === "AM" && hour === 12) hour = 0;
-    return pad(hour) + ":" + minute;
+    if (hour > 23) return "";
+    var clock = pad(hour) + ":" + pad(minute);
+    return second ? clock + ":" + pad(second) : clock;
+  }
+
+  function timeForStorage(value) {
+    var text = String(value || "").trim();
+    if (!text) return "";
+    if (validHtmlTime(text)) return text;
+    return canonicalTime(text) || text;
+  }
+
+  function timeFieldFor(value) {
+    var stored = timeForStorage(value);
+    if (!stored || validHtmlTime(stored)) return { type: "time", value: stored };
+    return { type: "text", value: stored };
   }
 
   function renderAttachmentLinks(entry) {
@@ -1054,7 +1086,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1384,7 +1416,7 @@
       return item(
         entry.trip || "Untitled Trip",
         entry.date || today(),
-        entry.time || "",
+        timeForStorage(entry.time),
         entry.location || "Unspecified",
         entry.description || "Travel event",
         entry.notes || "",
@@ -1516,5 +1548,14 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.canonicalTime = canonicalTime;
+    testHost.TRAVEL_LOG_TEST_HOOKS.timeForStorage = timeForStorage;
+    testHost.TRAVEL_LOG_TEST_HOOKS.timeFieldFor = timeFieldFor;
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
+    testHost.TRAVEL_LOG_TEST_HOOKS.importTime = importTime;
   }
 })();
