@@ -811,7 +811,9 @@
   }
 
   function importTime(text) {
-    var match = text.match(/(?:@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
+    // Date lines put the time first ("5/4 4:45 PM Arrive Bilbao"). The clock
+    // can sit at the start of the text, after @, or after a space.
+    var match = String(text || "").match(/(?:^|@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
     if (!match) return "";
     var hour = Number(match[1]);
     var minute = match[2] || "00";
@@ -1054,7 +1056,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
