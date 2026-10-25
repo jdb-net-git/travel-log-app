@@ -98,7 +98,7 @@
       return searchableText(entry).indexOf(query) !== -1;
     }) : entries;
     var html = "";
-    groupByTrip(visibleEntries).forEach(function (group) {
+    tripGroupsForRender(visibleEntries, !!query).forEach(function (group) {
       var trip = group[0];
       var tripEntries = sortByDate(group[1]);
       html += '<section class="trip"><div class="trip-heading"><div><h2>' + esc(trip) + "</h2><span>" + tripEntries.length + (tripEntries.length === 1 ? " event" : " events") + '</span></div><button class="edit-button" type="button" data-action="edit-trip" data-trip="' + esc(trip) + '">Edit</button></div>' + renderTripResources(trip) + '<div class="events">';
@@ -603,9 +603,36 @@
   }
 
   function knownTripNames() {
-    return unique(entries.map(function (entry) {
+    var names = entries.map(function (entry) {
       return entry.trip || "";
-    }).filter(Boolean)).sort(function (a, b) {
+    });
+    resourceOnlyTripNames(Object.create(null)).forEach(function (trip) {
+      names.push(trip);
+    });
+    return unique(names.filter(Boolean)).sort(function (a, b) {
+      return a.localeCompare(b);
+    });
+  }
+
+  function tripGroupsForRender(visibleEntries, searching) {
+    var groups = groupByTrip(visibleEntries);
+    if (searching) return groups;
+    var seen = Object.create(null);
+    groups.forEach(function (group) {
+      seen[group[0]] = true;
+    });
+    resourceOnlyTripNames(seen).forEach(function (trip) {
+      groups.push([trip, []]);
+    });
+    return groups;
+  }
+
+  function resourceOnlyTripNames(seen) {
+    return Object.keys(tripResources).filter(function (trip) {
+      if (seen[trip]) return false;
+      var record = tripResourceRecord(trip);
+      return entryAttachments(record).length || entryLinks(record).length;
+    }).sort(function (a, b) {
       return a.localeCompare(b);
     });
   }
@@ -874,11 +901,7 @@
   }
 
   function renderTripPicker(formId, selectedTrip) {
-    var trips = unique(entries.map(function (entry) {
-      return entry.trip || "";
-    }).filter(Boolean)).sort(function (a, b) {
-      return a.localeCompare(b);
-    });
+    var trips = knownTripNames();
     return '<div class="field"><label for="' + esc(formId) + '-trip-picker">Existing trips</label><select id="' + esc(formId) + '-trip-picker" name="tripPicker"><option value="">Choose</option>' + trips.map(function (trip) {
       return '<option value="' + esc(trip) + '"' + (trip === selectedTrip ? " selected" : "") + ">" + esc(trip) + "</option>";
     }).join("") + "</select></div>";
@@ -1054,7 +1077,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1516,5 +1539,19 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.setState = function (nextEntries, nextResources) {
+      entries = nextEntries || [];
+      tripResources = nextResources || {};
+    };
+    testHost.TRAVEL_LOG_TEST_HOOKS.tripNamesForRender = function (visibleEntries, searching) {
+      return tripGroupsForRender(visibleEntries || [], !!searching).map(function (group) {
+        return group[0];
+      });
+    };
+    testHost.TRAVEL_LOG_TEST_HOOKS.knownTripNames = knownTripNames;
   }
 })();
