@@ -811,14 +811,23 @@
   }
 
   function importTime(text) {
-    var match = text.match(/(?:@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
-    if (!match) return "";
-    var hour = Number(match[1]);
-    var minute = match[2] || "00";
-    var meridiem = match[3].toUpperCase();
-    if (meridiem === "PM" && hour !== 12) hour += 12;
-    if (meridiem === "AM" && hour === 12) hour = 0;
-    return pad(hour) + ":" + minute;
+    var source = String(text || "");
+    var match = source.match(/(?:@|\s)(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
+    if (match) {
+      var hour = Number(match[1]);
+      var minute = match[2] || "00";
+      var meridiem = match[3].toUpperCase();
+      if (meridiem === "PM" && hour !== 12) hour += 12;
+      if (meridiem === "AM" && hour === 12) hour = 0;
+      return pad(hour) + ":" + minute;
+    }
+    // 24-hour clocks have no AM/PM ("5/4 13:50 Arrive Madrid"). Keep a valid H:MM instead of dropping it.
+    var h24 = source.match(/(?:^|@|\s)(\d{1,2}):(\d{2})\b(?!\s*(?:AM|PM)\b)/i);
+    if (!h24) return "";
+    var hour24 = Number(h24[1]);
+    var minute24 = Number(h24[2]);
+    if (hour24 > 23 || minute24 > 59) return "";
+    return pad(hour24) + ":" + h24[2];
   }
 
   function renderAttachmentLinks(entry) {
@@ -1054,7 +1063,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
