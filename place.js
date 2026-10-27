@@ -417,11 +417,34 @@
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var text = String(value || "").trim();
+    var match = text.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?\s*(AM|PM)?$/i);
+    if (!match) return String(value || "");
+    var hour = Number(match[1]);
+    var hasMinute = match[2] !== undefined;
+    var minute = hasMinute ? Number(match[2]) : 0;
+    var meridiem = match[4] ? match[4].toUpperCase() : "";
+    if ((!hasMinute && !meridiem) || minute > 59) return String(value || "");
+    if (meridiem) {
+      if (hour < 1 || hour > 12) return String(value || "");
+      if (meridiem === "PM" && hour !== 12) hour += 12;
+      if (meridiem === "AM" && hour === 12) hour = 0;
+    }
+    var date = new Date(2026, 0, 1, hour, minute);
+    if (isNaN(date.getTime())) return String(value || "");
+    try {
+      return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+    } catch (error) {
+      return String(value || "");
+    }
   }
 
   function esc(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.formatTime = formatTime;
   }
 })();

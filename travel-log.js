@@ -103,7 +103,7 @@
       var tripEntries = sortByDate(group[1]);
       html += '<section class="trip"><div class="trip-heading"><div><h2>' + esc(trip) + "</h2><span>" + tripEntries.length + (tripEntries.length === 1 ? " event" : " events") + '</span></div><button class="edit-button" type="button" data-action="edit-trip" data-trip="' + esc(trip) + '">Edit</button></div>' + renderTripResources(trip) + '<div class="events">';
       tripEntries.forEach(function (entry) {
-        html += '<article class="event' + (hasNotBooked(entry) ? " event-alert" : "") + '">' + (hasNotBooked(entry) ? '<span class="alert-badge" aria-label="Attention">!</span>' : "") + '<div class="event-main"><div><div class="meta">' + (hasResources(entry) ? '<span class="attachment-marker" title="Has attachment or link">A</span>' : "") + '<span>' + formatDate(entry.date) + "</span>" + (entry.time ? "<span>" + formatTime(entry.time) + "</span>" : "") + '<strong><a class="location-link" href="' + locationPageUrl(entry) + '">' + highlightNotBooked(entry.location) + '</a></strong></div><p class="description"><a href="' + descriptionSearchUrl(entry.description) + '" target="_blank" rel="noopener noreferrer">' + highlightNotBooked(entry.description) + "</a></p>" + (entry.notes ? '<p class="notes">' + highlightNotBooked(entry.notes) + "</p>" : "") + renderEntryResources(entry) + '</div><button class="edit-button" type="button" data-action="edit-entry" data-id="' + esc(entry.id) + '">Edit</button></div></article>';
+        html += '<article class="event' + (hasNotBooked(entry) ? " event-alert" : "") + '">' + (hasNotBooked(entry) ? '<span class="alert-badge" aria-label="Attention">!</span>' : "") + '<div class="event-main"><div><div class="meta">' + (hasResources(entry) ? '<span class="attachment-marker" title="Has attachment or link">A</span>' : "") + '<span>' + formatDate(entry.date) + "</span>" + (entry.time ? "<span>" + esc(formatTime(entry.time)) + "</span>" : "") + '<strong><a class="location-link" href="' + locationPageUrl(entry) + '">' + highlightNotBooked(entry.location) + '</a></strong></div><p class="description"><a href="' + descriptionSearchUrl(entry.description) + '" target="_blank" rel="noopener noreferrer">' + highlightNotBooked(entry.description) + "</a></p>" + (entry.notes ? '<p class="notes">' + highlightNotBooked(entry.notes) + "</p>" : "") + renderEntryResources(entry) + '</div><button class="edit-button" type="button" data-action="edit-entry" data-id="' + esc(entry.id) + '">Edit</button></div></article>';
       });
       html += "</div></section>";
     });
@@ -240,7 +240,7 @@
 
     results.hidden = false;
     results.innerHTML = candidates.map(function (entry, index) {
-      return '<label class="approval-item"><input type="checkbox" data-import-index="' + index + '" checked><span><strong>' + esc(entry.trip) + '</strong><br>' + formatDate(entry.date) + (entry.time ? " " + formatTime(entry.time) : "") + " | " + esc(entry.location) + '<br>' + esc(entry.description) + '</span></label>';
+      return '<label class="approval-item"><input type="checkbox" data-import-index="' + index + '" checked><span><strong>' + esc(entry.trip) + '</strong><br>' + formatDate(entry.date) + (entry.time ? " " + esc(formatTime(entry.time)) : "") + " | " + esc(entry.location) + '<br>' + esc(entry.description) + '</span></label>';
     }).join("");
     window.pendingImportEntries = candidates;
   }
@@ -1054,7 +1054,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1368,8 +1368,26 @@
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var text = String(value || "").trim();
+    var match = text.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?\s*(AM|PM)?$/i);
+    if (!match) return String(value || "");
+    var hour = Number(match[1]);
+    var hasMinute = match[2] !== undefined;
+    var minute = hasMinute ? Number(match[2]) : 0;
+    var meridiem = match[4] ? match[4].toUpperCase() : "";
+    if ((!hasMinute && !meridiem) || minute > 59) return String(value || "");
+    if (meridiem) {
+      if (hour < 1 || hour > 12) return String(value || "");
+      if (meridiem === "PM" && hour !== 12) hour += 12;
+      if (meridiem === "AM" && hour === 12) hour = 0;
+    }
+    var date = new Date(2026, 0, 1, hour, minute);
+    if (isNaN(date.getTime())) return String(value || "");
+    try {
+      return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+    } catch (error) {
+      return String(value || "");
+    }
   }
 
   function formatPrintedAt(value) {
@@ -1516,5 +1534,10 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.formatTime = formatTime;
   }
 })();
