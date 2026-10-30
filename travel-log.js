@@ -751,7 +751,7 @@
       }).filter(Boolean).forEach(function (piece) {
         var found = importLocations(piece);
         found.forEach(function (location) {
-          parsed.push(item(trip, date, importTime(piece), location, piece.replace(/\s*@\s*/g, " at "), ""));
+          parsed.push(item(trip, date, importTime(piece), location, descriptionFromImportPiece(piece), ""));
         });
       });
     });
@@ -808,6 +808,10 @@
     if (flyTo) found.push(flyTo[1].trim());
     if (!found.length) found.push("Unspecified");
     return unique(found);
+  }
+
+  function descriptionFromImportPiece(piece) {
+    return String(piece || "").replace(/(^|\s)@\s*(?=\d)/g, "$1at ");
   }
 
   function importTime(text) {
@@ -1054,7 +1058,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
