@@ -798,16 +798,31 @@
     var known = ["LAX", "Madrid", "Bilbao", "Santiago", "Seattle", "Ship", "Train", "Radisson Collection", "Parador"];
     var found = [];
     known.forEach(function (place) {
-      if (text.toLowerCase().indexOf(place.toLowerCase()) !== -1) found.push(place);
+      if (containsWholePlace(text, place)) found.push(place);
     });
-    var hotel = text.match(/Hotel:\s*([^@-]+)/i);
-    if (hotel) found.push(hotel[1].trim());
-    var arrive = text.match(/Arrive\s+([A-Z][A-Za-z ]+?)(?:\s+\d|$|@|-)/);
+    var placeName = "([A-Z][A-Za-z]*(?:\\s+[A-Z][A-Za-z]*)*)";
+    var hotel = text.match(new RegExp("[Hh]otel:\\s*([^@\\n-]+)"));
+    if (hotel) {
+      var hotelName = hotel[1].replace(/\([^)]*\)/g, " ").replace(/[.,;:]+$/g, "").replace(/\s+/g, " ").trim();
+      if (hotelName) found.push(hotelName);
+    }
+    var arrive = text.match(new RegExp("[Aa]rrive\\s+" + placeName));
     if (arrive) found.push(arrive[1].trim());
-    var flyTo = text.match(/Fly to\s+([A-Z][A-Za-z ]+)/i);
+    var flyTo = text.match(new RegExp("[Ff]ly [Tt]o\\s+" + placeName));
     if (flyTo) found.push(flyTo[1].trim());
+    var places = unique(found);
+    found = places.filter(function (place) {
+      return !places.some(function (other) {
+        return other !== place && other.length > place.length && containsWholePlace(other, place);
+      });
+    });
     if (!found.length) found.push("Unspecified");
-    return unique(found);
+    return found;
+  }
+
+  function containsWholePlace(text, place) {
+    var escaped = String(place).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("\\b" + escaped + "\\b", "i").test(text);
   }
 
   function importTime(text) {
@@ -1054,7 +1069,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
