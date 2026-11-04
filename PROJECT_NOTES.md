@@ -26,7 +26,7 @@ index.html
 The current app script is loaded with a cache-busting query string:
 
 ```html
-<script src="./travel-log.js?v=54" defer></script>
+<script src="./travel-log.js?v=57" defer></script>
 ```
 
 When changing `travel-log.js`, bump the version number in `index.html` so browsers pick up the latest script.
