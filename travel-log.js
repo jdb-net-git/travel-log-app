@@ -8,6 +8,9 @@
   var tripResources = localState.tripResources || {};
   var appSettings = localState.appSettings || defaultSettings();
   var storageReady = false;
+  var storageSettled = false;
+  var storageWritable = false;
+  var saveQueue = Promise.resolve();
 
   function sampleEntries() {
     return [
@@ -44,8 +47,35 @@
   });
 
   function onClick(event) {
+    var locationLink = event.target.closest ? event.target.closest("a.location-link") : null;
+    if (locationLink && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      var href = locationLink.href;
+      var leftPage = false;
+      function openLocation() {
+        if (leftPage) return;
+        leftPage = true;
+        window.location.href = href;
+      }
+      setTimeout(openLocation, 4000);
+      flushSaves().then(openLocation, openLocation);
+      return;
+    }
+
     var control = event.target.closest("[data-action]");
     var action = control ? control.getAttribute("data-action") : "";
+    if (action && isBlockedAction(action)) {
+      event.preventDefault();
+      var exportReason = exportBlockReason();
+      if (exportReason && isExportAction(action)) {
+        showMessage(storageSettled ? "Storage Unavailable" : "Still Loading", exportReason);
+      } else {
+        showMessage(storageSettled ? "Storage Unavailable" : "Still Loading", storageSettled
+          ? "Saved trips could not be read. Reload this page before editing so existing trips are not overwritten."
+          : "Trips are still loading. Try again in a moment.");
+      }
+      return;
+    }
     if (action === "add") showForm();
     if (action === "settings") showSettings();
     if (action === "readme") showReadme();
@@ -90,7 +120,7 @@
 
   function render() {
     var container = document.querySelector(".trips");
-    if (!container) return;
+    if (!container || !storageSettled) return;
     saveEntries();
     var searchInput = document.querySelector('[type="search"]');
     var query = searchInput ? searchInput.value.trim().toLowerCase() : "";
@@ -420,11 +450,16 @@
         if (entry.trip !== originalTrip) return entry;
         return item(nextTrip, entry.date, entry.time, entry.location, entry.description, entry.notes, entry.id, entry.attachments, entry.links);
       });
-      if (nextTrip !== originalTrip) delete tripResources[originalTrip];
-      tripResources[nextTrip] = {
-        attachments: keptAttachments.concat(newAttachments),
-        links: links
-      };
+      var sourceAttachments = keptAttachments.concat(newAttachments);
+      if (nextTrip !== originalTrip) {
+        tripResources[nextTrip] = combineTripResources(tripResources[nextTrip], sourceAttachments, links);
+        delete tripResources[originalTrip];
+      } else {
+        tripResources[nextTrip] = {
+          attachments: sourceAttachments,
+          links: links
+        };
+      }
       closeModal();
       render();
     }).catch(function () {
@@ -474,6 +509,7 @@
   }
 
   function showBackupChoice() {
+    if (exportBlocked()) return;
     showModal(
       '<section class="modal"><h2>Backup</h2><p class="description">Back up or restore trips, events, links, and attachments on this device. Choose a trip for backup, or leave ALL TRIPS selected.</p>' +
         renderTripScopePicker("backupTripScope", "Trips to back up") +
@@ -482,6 +518,7 @@
   }
 
   function createBackupFile() {
+    if (exportBlocked()) return;
     var tripName = selectedTripScope("backupTripScope");
     var scoped = scopeDataForTrip(tripName);
     var payload = {
@@ -546,6 +583,7 @@
   }
 
   function askPdfNotes() {
+    if (exportBlocked()) return;
     showModal(
       '<section class="modal"><h2>PDF Export</h2><p class="description">Choose which trip to include, then whether entry notes appear in the PDF.</p>' +
         renderTripScopePicker("pdfTripScope", "Trips to include") +
@@ -554,6 +592,7 @@
   }
 
   function openPdfTab(includeNotes) {
+    if (exportBlocked()) return;
     var tripName = selectedTripScope("pdfTripScope");
     var list = entriesForTripScope(tripName);
     closeModal();
@@ -625,9 +664,14 @@
   }
 
   function entriesForTripScope(tripName) {
-    if (!tripName) return entries.slice();
-    return entries.filter(function (entry) {
-      return entry.trip === tripName;
+    return entriesMatchingTrip(entries, tripName);
+  }
+
+  function entriesMatchingTrip(list, tripName) {
+    var source = list || [];
+    if (!tripName) return source.slice();
+    return source.filter(function (entry) {
+      return tripNamesMatch(entry.trip, tripName);
     });
   }
 
@@ -638,13 +682,18 @@
         tripResources: tripResources
       };
     }
-    var scopedEntries = entriesForTripScope(tripName);
     var scopedResources = {};
-    if (tripResources[tripName]) scopedResources[tripName] = tripResources[tripName];
+    Object.keys(tripResources || {}).forEach(function (name) {
+      if (tripNamesMatch(name, tripName)) scopedResources[name] = tripResources[name];
+    });
     return {
-      entries: scopedEntries,
+      entries: entriesForTripScope(tripName),
       tripResources: scopedResources
     };
+  }
+
+  function tripNamesMatch(left, right) {
+    return String(left || "").toLowerCase() === String(right || "").toLowerCase();
   }
 
   function slugForFilename(value) {
@@ -657,6 +706,7 @@
   }
 
   function exportTextFile() {
+    if (exportBlocked()) return;
     var text = buildExportText();
     var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     var url = URL.createObjectURL(blob);
@@ -1054,7 +1104,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1159,24 +1209,120 @@
     return { id: id || createId(), trip: trip, date: date, time: time, location: location, description: description, notes: notes, attachments: attachments || [], links: links || [] };
   }
 
+  function isMutatingAction(action) {
+    return {
+      "add": true,
+      "settings": true,
+      "edit-entry": true,
+      "edit-trip": true,
+      "save-entry": true,
+      "delete-entry": true,
+      "confirm-delete-entry": true,
+      "delete-checked-attachments": true,
+      "save-trip": true,
+      "save-settings": true,
+      "start-delete-trip": true,
+      "confirm-delete-trip": true,
+      "choose-restore-file": true,
+      "confirm-restore-backup": true,
+      "import": true,
+      "choose-import-file": true,
+      "import-file-add": true,
+      "import-file-replace": true,
+      "confirm-import-file-replace": true,
+      "parse-import": true,
+      "approve-import": true,
+      "reload-sample-data": true,
+      "confirm-reload-sample-data": true
+    }[action] === true;
+  }
+
+  function isExportAction(action) {
+    return {
+      "export": true,
+      "export-pdf-with-notes": true,
+      "export-pdf-without-notes": true,
+      "export-text": true,
+      "backup": true,
+      "create-backup": true
+    }[action] === true;
+  }
+
+  function exportBlockReason() {
+    if (!storageSettled) return "Trips are still loading. Try again in a moment.";
+    if (!storageWritable && !(localState && localState.entries)) {
+      return "Saved trips could not be read. Reload this page before exporting so an empty file does not replace them later.";
+    }
+    return "";
+  }
+
+  function exportBlocked() {
+    var reason = exportBlockReason();
+    if (!reason) return false;
+    showMessage(storageSettled ? "Storage Unavailable" : "Still Loading", reason);
+    return true;
+  }
+
+  function isBlockedAction(action) {
+    if (!action) return false;
+    if (isMutatingAction(action) && !storageWritable) return true;
+    if (isExportAction(action) && exportBlockReason()) return true;
+    return false;
+  }
+
+  function chooseStoredState(localSnapshot, indexedSnapshot) {
+    var localEntries = localSnapshot && localSnapshot.entries;
+    if (indexedSnapshot && Array.isArray(indexedSnapshot.entries) && (!localEntries || Number(indexedSnapshot.updatedAt || 0) >= Number(localSnapshot.updatedAt || 0))) {
+      return "indexed";
+    }
+    if (localEntries) return "local";
+    return "empty";
+  }
+
+  function entriesAfterUnreadableIndexedDb(localEntries) {
+    return localEntries ? localEntries : [];
+  }
+
+  function combineTripResources(destination, sourceAttachments, sourceLinks) {
+    return {
+      attachments: entryAttachments(destination).concat(sourceAttachments || []),
+      links: entryLinks(destination).concat(sourceLinks || [])
+    };
+  }
+
   function initializeStorage() {
     return loadIndexedState().then(function (indexedState) {
-      if (indexedState && indexedState.entries && (!localState.entries || indexedState.updatedAt >= localState.updatedAt)) {
+      var choice = chooseStoredState(localState, indexedState);
+      if (choice === "indexed") {
         entries = indexedState.entries;
         tripResources = indexedState.tripResources || {};
         appSettings = indexedState.appSettings || defaultSettings();
-      } else if (localState.entries) {
-        return saveIndexedState(localState);
       }
+      storageWritable = true;
+      if (choice === "local") return enqueueIndexedWrite(localState);
     }).catch(function () {
-      return null;
+      storageWritable = false;
+      entries = entriesAfterUnreadableIndexedDb(localState.entries);
+      if (!localState.entries) {
+        tripResources = {};
+        appSettings = defaultSettings();
+      }
     }).then(function () {
       storageReady = true;
+      storageSettled = true;
+      if (!storageWritable) {
+        showMessage(
+          "Storage Unavailable",
+          localState.entries
+            ? "The full saved copy could not be read. Showing the last copy this browser could open. Reload before editing so newer trips are not overwritten."
+            : "Saved trips could not be read. Reload this page before editing so existing trips are not overwritten."
+        );
+      }
     });
   }
 
   function saveEntries() {
-    if (!storageReady) return Promise.resolve();
+    if (!storageReady || !storageWritable) return Promise.resolve();
     var state = {
       entries: normalizeEntries(entries),
       tripResources: normalizeTripResources(tripResources),
@@ -1191,9 +1337,22 @@
     } catch (error) {
       // Mobile browsers can reject larger backups with attachments. IndexedDB below is the durable path.
     }
-    return saveIndexedState(state).catch(function () {
+    return enqueueIndexedWrite(state);
+  }
+
+  function enqueueIndexedWrite(state) {
+    var run = saveQueue.then(function () {
+      return saveIndexedState(state);
+    }).catch(function () {
       return null;
     });
+    saveQueue = run;
+    return run;
+  }
+
+  function flushSaves() {
+    saveEntries();
+    return saveQueue;
   }
 
   function loadEntries() {
@@ -1228,16 +1387,28 @@
       return new Promise(function (resolve, reject) {
         var transaction = db.transaction(databaseStore, "readonly");
         var request = transaction.objectStore(databaseStore).get(storageKey);
+        var settled = false;
+        var snapshot = null;
+        function finish(ok, value) {
+          if (settled) return;
+          settled = true;
+          closeDatabase(db);
+          if (ok) resolve(value);
+          else reject(value);
+        }
         request.onsuccess = function () {
           var value = request.result;
-          resolve(value && Array.isArray(value.entries) ? {
+          snapshot = value && Array.isArray(value.entries) ? {
             entries: normalizeEntries(value.entries),
             tripResources: normalizeTripResources(value.tripResources || {}),
             appSettings: normalizeSettings(value.appSettings || {}),
             updatedAt: Number(value.updatedAt || 0)
-          } : null);
+          } : null;
         };
-        request.onerror = function () { reject(request.error); };
+        request.onerror = function () { finish(false, request.error); };
+        transaction.oncomplete = function () { finish(true, snapshot); };
+        transaction.onerror = function () { finish(false, transaction.error || request.error); };
+        transaction.onabort = function () { finish(false, transaction.error || new Error("IndexedDB read aborted")); };
       });
     });
   }
@@ -1247,8 +1418,17 @@
     return openDatabase().then(function (db) {
       return new Promise(function (resolve, reject) {
         var transaction = db.transaction(databaseStore, "readwrite");
-        transaction.oncomplete = function () { resolve(); };
-        transaction.onerror = function () { reject(transaction.error); };
+        var settled = false;
+        function finish(ok, value) {
+          if (settled) return;
+          settled = true;
+          closeDatabase(db);
+          if (ok) resolve(value);
+          else reject(value);
+        }
+        transaction.oncomplete = function () { finish(true); };
+        transaction.onerror = function () { finish(false, transaction.error); };
+        transaction.onabort = function () { finish(false, transaction.error || new Error("IndexedDB write aborted")); };
         transaction.objectStore(databaseStore).put({
           id: storageKey,
           entries: normalizeEntries(state.entries),
@@ -1258,6 +1438,13 @@
         });
       });
     });
+  }
+
+  function closeDatabase(db) {
+    try {
+      db.close();
+    } catch (error) {
+    }
   }
 
   function openDatabase() {
@@ -1336,7 +1523,7 @@
   }
 
   function groupByTrip(list) {
-    var groups = {};
+    var groups = Object.create(null);
     list.forEach(function (entry) {
       if (!groups[entry.trip]) groups[entry.trip] = [];
       groups[entry.trip].push(entry);
@@ -1364,12 +1551,18 @@
   }
 
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var parsed = new Date(String(value || "") + "T12:00:00");
+    if (isNaN(parsed.getTime())) return "Invalid date";
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parsed);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var hours = Number(parts[0]);
+    var minutes = Number(parts[1]);
+    var parsed = new Date(2026, 0, 1, hours, minutes);
+    if (!isFinite(hours) || !isFinite(minutes) || isNaN(parsed.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(parsed);
   }
 
   function formatPrintedAt(value) {
@@ -1516,5 +1709,17 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : null);
+  if (testHost && testHost.__TRAVEL_LOG_TEST__) {
+    testHost.__TRAVEL_LOG_TEST__.formatDate = formatDate;
+    testHost.__TRAVEL_LOG_TEST__.formatTime = formatTime;
+    testHost.__TRAVEL_LOG_TEST__.chooseStoredState = chooseStoredState;
+    testHost.__TRAVEL_LOG_TEST__.entriesAfterUnreadableIndexedDb = entriesAfterUnreadableIndexedDb;
+    testHost.__TRAVEL_LOG_TEST__.entriesMatchingTrip = entriesMatchingTrip;
+    testHost.__TRAVEL_LOG_TEST__.combineTripResources = combineTripResources;
+    testHost.__TRAVEL_LOG_TEST__.tripNamesMatch = tripNamesMatch;
+    testHost.__TRAVEL_LOG_TEST__.groupByTrip = groupByTrip;
   }
 })();
