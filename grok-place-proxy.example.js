@@ -32,8 +32,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`Grok place proxy listening on http://127.0.0.1:${port}`);
+// Bind loopback only. listen(port) without a host accepts every interface,
+// which would expose XAI_API_KEY while the log claims localhost.
+const host = "127.0.0.1";
+server.listen(port, host, () => {
+  console.log(`Grok place proxy listening on http://${host}:${port}`);
 });
 
 async function lookupPlace(location) {
