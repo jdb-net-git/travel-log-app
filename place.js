@@ -323,10 +323,12 @@
   function renderCalendar(entries) {
     var grid = document.getElementById("calendar-grid");
     if (!grid) return;
-    var base = entries.length ? new Date(entries[0].date + "T12:00:00") : new Date();
+    var parsed = entries.length ? new Date(String(entries[0].date || "") + "T12:00:00") : new Date();
+    var base = isNaN(parsed.getTime()) ? new Date() : parsed;
     var activeDays = {};
     entries.forEach(function (entry) {
-      activeDays[Number(entry.date.slice(8, 10))] = true;
+      var day = Number(String(entry.date || "").slice(8, 10));
+      if (day >= 1 && day <= 31) activeDays[day] = true;
     });
     var month = base.getMonth();
     var year = base.getFullYear();
@@ -354,25 +356,45 @@
   }
 
   function loadEntries() {
-    var localEntries = loadLocalEntries();
-    return loadIndexedEntries().then(function (indexedEntries) {
-      return indexedEntries.length ? indexedEntries : localEntries;
+    var localSnapshot = loadLocalSnapshot();
+    return loadIndexedSnapshot().then(function (indexedSnapshot) {
+      return chooseDashboardEntries(localSnapshot, indexedSnapshot);
     }).catch(function () {
-      return localEntries;
+      return localSnapshot.entries || [];
     });
   }
 
-  function loadLocalEntries() {
+  function chooseDashboardEntries(localSnapshot, indexedSnapshot) {
+    var localEntries = localSnapshot && Array.isArray(localSnapshot.entries) ? localSnapshot.entries : null;
+    var indexedEntries = indexedSnapshot && Array.isArray(indexedSnapshot.entries) ? indexedSnapshot.entries : null;
+    if (indexedEntries && (localEntries === null || Number(indexedSnapshot.updatedAt || 0) >= Number(localSnapshot && localSnapshot.updatedAt || 0))) {
+      return indexedEntries;
+    }
+    return localEntries || [];
+  }
+
+  function loadLocalSnapshot() {
     try {
       var raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) return { entries: null, updatedAt: 0 };
+      var meta = {};
+      try {
+        meta = JSON.parse(localStorage.getItem(storageKey + "-meta") || "{}");
+      } catch (error) {
+        meta = {};
+      }
+      var parsed = JSON.parse(raw);
+      return {
+        entries: Array.isArray(parsed) ? parsed : null,
+        updatedAt: Number(meta.updatedAt || 0)
+      };
     } catch (error) {
-      return [];
+      return { entries: null, updatedAt: 0 };
     }
   }
 
-  function loadIndexedEntries() {
-    if (!window.indexedDB) return Promise.resolve([]);
+  function loadIndexedSnapshot() {
+    if (!window.indexedDB) return Promise.resolve(null);
     return new Promise(function (resolve, reject) {
       var request = indexedDB.open(databaseName, 1);
       request.onupgradeneeded = function () {
@@ -386,11 +408,26 @@
         var db = request.result;
         var transaction = db.transaction(databaseStore, "readonly");
         var read = transaction.objectStore(databaseStore).get(storageKey);
+        var settled = false;
+        var snapshot = null;
+        function finish(ok, value) {
+          if (settled) return;
+          settled = true;
+          try { db.close(); } catch (error) {}
+          if (ok) resolve(value);
+          else reject(value);
+        }
         read.onsuccess = function () {
           var value = read.result;
-          resolve(value && Array.isArray(value.entries) ? value.entries : []);
+          snapshot = value && Array.isArray(value.entries) ? {
+            entries: value.entries,
+            updatedAt: Number(value.updatedAt || 0)
+          } : null;
         };
-        read.onerror = function () { reject(read.error); };
+        read.onerror = function () { finish(false, read.error); };
+        transaction.oncomplete = function () { finish(true, snapshot); };
+        transaction.onerror = function () { finish(false, transaction.error || read.error); };
+        transaction.onabort = function () { finish(false, transaction.error || new Error("IndexedDB read aborted")); };
       };
     });
   }
@@ -413,15 +450,28 @@
   }
 
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var parsed = new Date(String(value || "") + "T12:00:00");
+    if (isNaN(parsed.getTime())) return "Invalid date";
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parsed);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var hours = Number(parts[0]);
+    var minutes = Number(parts[1]);
+    var parsed = new Date(2026, 0, 1, hours, minutes);
+    if (!isFinite(hours) || !isFinite(minutes) || isNaN(parsed.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(parsed);
   }
 
   function esc(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  var testHost = typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : null);
+  if (testHost && testHost.__TRAVEL_LOG_TEST__) {
+    testHost.__TRAVEL_LOG_TEST__.formatDate = formatDate;
+    testHost.__TRAVEL_LOG_TEST__.formatTime = formatTime;
+    testHost.__TRAVEL_LOG_TEST__.chooseDashboardEntries = chooseDashboardEntries;
   }
 })();
