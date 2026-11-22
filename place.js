@@ -323,10 +323,12 @@
   function renderCalendar(entries) {
     var grid = document.getElementById("calendar-grid");
     if (!grid) return;
-    var base = entries.length ? new Date(entries[0].date + "T12:00:00") : new Date();
+    var base = entries.length ? new Date(String(entries[0].date || "") + "T12:00:00") : new Date();
+    if (isNaN(base.getTime())) base = new Date();
     var activeDays = {};
     entries.forEach(function (entry) {
-      activeDays[Number(entry.date.slice(8, 10))] = true;
+      var day = Number(String(entry.date || "").slice(8, 10));
+      if (day >= 1 && day <= 31) activeDays[day] = true;
     });
     var month = base.getMonth();
     var year = base.getFullYear();
@@ -413,12 +415,16 @@
   }
 
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var date = new Date(String(value || "") + "T12:00:00");
+    if (isNaN(date.getTime())) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(date);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var date = new Date(2026, 0, 1, Number(parts[0]), Number(parts[1]));
+    if (isNaN(date.getTime())) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
   }
 
   function esc(value) {

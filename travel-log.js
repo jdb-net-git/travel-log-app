@@ -1054,7 +1054,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1364,12 +1364,16 @@
   }
 
   function formatDate(value) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
+    var date = new Date(String(value || "") + "T12:00:00");
+    if (isNaN(date.getTime())) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(date);
   }
 
   function formatTime(value) {
-    var parts = value.split(":");
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
+    var parts = String(value || "").split(":");
+    var date = new Date(2026, 0, 1, Number(parts[0]), Number(parts[1]));
+    if (isNaN(date.getTime())) return String(value || "");
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
   }
 
   function formatPrintedAt(value) {
