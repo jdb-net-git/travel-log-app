@@ -8,6 +8,8 @@
   var tripResources = localState.tripResources || {};
   var appSettings = localState.appSettings || defaultSettings();
   var storageReady = false;
+  var modalActionId = 0;
+  var applyLocked = false;
 
   function sampleEntries() {
     return [
@@ -39,19 +41,26 @@
     document.addEventListener("change", onChange);
     var searchInput = document.querySelector('[type="search"]');
     if (searchInput) {
-      searchInput.addEventListener("input", render);
+      searchInput.addEventListener("input", function () {
+        if (applyLocked) return;
+        render();
+      });
     }
   });
 
   function onClick(event) {
     var control = event.target.closest("[data-action]");
     var action = control ? control.getAttribute("data-action") : "";
+    if (action === "close-modal" || event.target.className === "modal-backdrop") {
+      dismissModal();
+      return;
+    }
+    if (applyLocked) return;
     if (action === "add") showForm();
     if (action === "settings") showSettings();
     if (action === "readme") showReadme();
     if (action === "edit-entry") showForm(control.getAttribute("data-id"));
     if (action === "edit-trip") showTripForm(control.getAttribute("data-trip"));
-    if (action === "close-modal") closeModal();
     if (action === "save-entry") saveEntry(event);
     if (action === "delete-entry") confirmDeleteEntry(event);
     if (action === "confirm-delete-entry") deleteEntry(event);
@@ -78,7 +87,6 @@
     if (action === "approve-import") approveImport();
     if (action === "reload-sample-data") confirmReloadSampleData();
     if (action === "confirm-reload-sample-data") reloadSampleData();
-    if (event.target.className === "modal-backdrop") closeModal();
   }
 
   function onChange(event) {
@@ -91,7 +99,7 @@
   function render() {
     var container = document.querySelector(".trips");
     if (!container) return;
-    saveEntries();
+    if (!applyLocked) saveEntries();
     var searchInput = document.querySelector('[type="search"]');
     var query = searchInput ? searchInput.value.trim().toLowerCase() : "";
     var visibleEntries = query ? entries.filter(function (entry) {
@@ -316,7 +324,9 @@
     var links = newLink ? keptLinks.concat([newLink]) : keptLinks;
     saveButton.disabled = true;
     saveButton.textContent = "Saving";
-    readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
+    var actionId = modalActionId;
+    return readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
+      if (actionId !== modalActionId) return;
       var next = item(trip, date, time, location, description, notes, id, keptAttachments.concat(newAttachments), links);
       if (id) {
         entries = entries.map(function (entry) {
@@ -328,6 +338,7 @@
       closeModal();
       render();
     }).catch(function () {
+      if (actionId !== modalActionId) return;
       saveButton.disabled = false;
       saveButton.textContent = "Save";
       showMessage("Attachment Error", "One or more attachments could not be read.");
@@ -415,7 +426,9 @@
     var links = newLink ? keptLinks.concat([newLink]) : keptLinks;
     saveButton.disabled = true;
     saveButton.textContent = "Saving";
-    readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
+    var actionId = modalActionId;
+    return readAttachmentFiles(modal.querySelector('[name="attachments"]')).then(function (newAttachments) {
+      if (actionId !== modalActionId) return;
       entries = entries.map(function (entry) {
         if (entry.trip !== originalTrip) return entry;
         return item(nextTrip, entry.date, entry.time, entry.location, entry.description, entry.notes, entry.id, entry.attachments, entry.links);
@@ -428,6 +441,7 @@
       closeModal();
       render();
     }).catch(function () {
+      if (actionId !== modalActionId) return;
       saveButton.disabled = false;
       saveButton.textContent = "Save";
       showMessage("Attachment Error", "One or more attachments could not be read.");
@@ -529,18 +543,34 @@
 
   function restoreBackupFile() {
     var file = window.pendingBackupRestoreFile;
-    if (!file) return;
-    readBackupFile(file).then(function (backup) {
+    if (!file) return Promise.resolve();
+    var actionId = modalActionId;
+    var previousEntries = entries;
+    var previousResources = tripResources;
+    var previousSettings = appSettings;
+    return readBackupFile(file).then(function (backup) {
+      if (actionId !== modalActionId) return;
       if (!backup || !Array.isArray(backup.entries)) throw new Error("Invalid backup");
+      applyLocked = true;
       entries = normalizeEntries(backup.entries);
       tripResources = normalizeTripResources(backup.tripResources || {});
       appSettings = normalizeSettings(backup.appSettings || {});
       window.pendingBackupRestoreFile = null;
       return saveEntries().then(function () {
-        closeModal();
+        if (actionId !== modalActionId) {
+          entries = previousEntries;
+          tripResources = previousResources;
+          appSettings = previousSettings;
+          return saveEntries();
+        }
+      }).then(function () {
+        applyLocked = false;
+        if (actionId === modalActionId) closeModal();
         render();
       });
     }).catch(function () {
+      applyLocked = false;
+      if (actionId !== modalActionId) return;
       showMessage("Restore Failed", "That backup file could not be restored.");
     });
   }
@@ -1139,6 +1169,7 @@
   }
 
   function showModal(html) {
+    modalActionId += 1;
     closeModal();
     var wrapper = document.createElement("div");
     wrapper.className = "modal-backdrop";
@@ -1149,6 +1180,11 @@
   function closeModal() {
     var modal = document.querySelector(".modal-backdrop");
     if (modal) modal.parentNode.removeChild(modal);
+  }
+
+  function dismissModal() {
+    modalActionId += 1;
+    closeModal();
   }
 
   function showMessage(title, message) {
@@ -1516,5 +1552,23 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.saveEntry = saveEntry;
+    testHost.TRAVEL_LOG_TEST_HOOKS.saveTrip = saveTrip;
+    testHost.TRAVEL_LOG_TEST_HOOKS.restoreBackupFile = restoreBackupFile;
+    testHost.TRAVEL_LOG_TEST_HOOKS.dismissModal = dismissModal;
+    testHost.TRAVEL_LOG_TEST_HOOKS.storageReady = function () { return storageReady; };
+    testHost.TRAVEL_LOG_TEST_HOOKS.entries = function () {
+      return JSON.parse(JSON.stringify(entries));
+    };
+    testHost.TRAVEL_LOG_TEST_HOOKS.tripResources = function () {
+      return JSON.parse(JSON.stringify(tripResources));
+    };
+    testHost.TRAVEL_LOG_TEST_HOOKS.setPendingBackupFile = function (file) {
+      window.pendingBackupRestoreFile = file;
+    };
   }
 })();
