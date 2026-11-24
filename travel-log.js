@@ -113,6 +113,9 @@
   function showForm(id) {
     var editing = findEntry(id);
     var formId = "entry-form-" + createId();
+    var storedDate = editing ? editing.date : today();
+    // A date input drops values that are not real calendar days, and Save would then store today.
+    var dateType = calendarDateOrEmpty(storedDate) ? "date" : "text";
     showModal(
       '<section class="modal entry-modal"><h2>' +
         (editing ? "Edit Entry" : "Add Entry") +
@@ -122,8 +125,8 @@
         esc(editing ? editing.trip : "Spain 2027 Trip") +
         '"></div>' + renderTripPicker(formId, editing ? editing.trip : "Spain 2027 Trip") + '</div><div class="field"><label for="' + formId + '-location">Location</label><input id="' + formId + '-location" name="location" placeholder="Madrid" value="' +
         esc(editing ? editing.location : "") +
-        '"></div><div class="compact-grid"><div class="field"><label for="' + formId + '-date">Date</label><input id="' + formId + '-date" name="date" type="date" value="' +
-        esc(editing ? editing.date : today()) +
+        '"></div><div class="compact-grid"><div class="field"><label for="' + formId + '-date">Date</label><input id="' + formId + '-date" name="date" type="' + dateType + '" value="' +
+        esc(storedDate) +
         '"></div><div class="field"><label for="' + formId + '-time">Time</label><input id="' + formId + '-time" name="time" type="time" value="' +
         esc(editing ? editing.time : "") +
         '"></div></div><div class="field"><label for="' + formId + '-description">Description</label><textarea id="' + formId + '-description" name="description" rows="1" placeholder="What happened?" autocomplete="off" spellcheck="true">' +
@@ -1367,6 +1370,17 @@
     return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(value + "T12:00:00"));
   }
 
+  function calendarDateOrEmpty(value) {
+    var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
+    if (!match) return "";
+    var year = Number(match[1]);
+    var month = Number(match[2]);
+    var day = Number(match[3]);
+    var parsed = new Date(year, month - 1, day);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return "";
+    return match[0];
+  }
+
   function formatTime(value) {
     var parts = value.split(":");
     return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, Number(parts[0]), Number(parts[1])));
@@ -1516,5 +1530,11 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  var testHost = typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : null);
+  if (testHost && testHost.TRAVEL_LOG_TEST_HOOKS) {
+    testHost.TRAVEL_LOG_TEST_HOOKS.calendarDateOrEmpty = calendarDateOrEmpty;
+    testHost.TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
   }
 })();
