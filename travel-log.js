@@ -1054,7 +1054,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1130,12 +1130,36 @@
     var base64 = parts.slice(1).join(",");
     var typeMatch = header.match(/^data:([^;]+);base64$/i);
     var type = typeMatch ? typeMatch[1] : (fallbackType || "application/octet-stream");
+    // Blob URLs inherit this page's origin, so HTML and SVG would be able to read saved trips.
+    type = safeAttachmentType(type);
     var binary = atob(base64);
     var bytes = new Uint8Array(binary.length);
     for (var i = 0; i < binary.length; i += 1) {
       bytes[i] = binary.charCodeAt(i);
     }
     return new Blob([bytes], { type: type });
+  }
+
+  function safeAttachmentType(type) {
+    var normalized = String(type || "").toLowerCase().split(";")[0].trim();
+    if (normalized === "image/jpg") normalized = "image/jpeg";
+    var safeTypes = [
+      "application/pdf",
+      "image/gif",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "text/plain",
+      "audio/mpeg",
+      "audio/mp4",
+      "audio/wav",
+      "audio/webm",
+      "video/mp4",
+      "video/webm",
+      "video/quicktime"
+    ];
+    if (safeTypes.indexOf(normalized) !== -1) return normalized;
+    return "application/octet-stream";
   }
 
   function showModal(html) {
