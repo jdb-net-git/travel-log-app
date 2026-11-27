@@ -720,30 +720,38 @@
     var trip = "Imported Trip";
     var year = new Date().getFullYear();
 
-    lines.forEach(function (line) {
-      if (line.charAt(0) === "#") return;
+    for (var index = 0; index < lines.length; index += 1) {
+      var line = lines[index];
+      if (line.charAt(0) === "#") continue;
       var exported = parseExportLine(line, trip);
       if (exported) {
         parsed.push(exported);
-        return;
+        continue;
       }
 
       var match = line.match(/^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\.?,?\s+)?(\d{1,2})[\/\-.](\d{1,2})\b\s*(.*)$/i);
+      var nextLine = nextImportLine(lines, index);
+      if (match && parseExportLine(nextLine, trip) && dateLineIsTripTitle(line, match)) {
+        var titled = tripHeadingFromLine(line, trip, year);
+        trip = titled.trip;
+        year = titled.year;
+        continue;
+      }
       if (!match) {
-        trip = line;
-        var yearMatch = line.match(/\b(20\d{2})\b/);
-        if (yearMatch) year = Number(yearMatch[1]);
-        return;
+        var heading = tripHeadingFromLine(line, trip, year);
+        trip = heading.trip;
+        year = heading.year;
+        continue;
       }
 
       var body = match[3].trim();
-      if (!body) return;
+      if (!body) continue;
       var date = year + "-" + pad(match[1]) + "-" + pad(match[2]);
       var route = body.match(/^([A-Za-z ]+)\s+(?:-|–|—)\s+([A-Za-z ]+)$/);
       if (route) {
         parsed.push(item(trip, date, "", route[1].trim(), body, ""));
         parsed.push(item(trip, date, "", route[2].trim(), body, ""));
-        return;
+        continue;
       }
 
       body.split(/\s+(?:-|–|—)\s+/).map(function (piece) {
@@ -754,9 +762,34 @@
           parsed.push(item(trip, date, importTime(piece), location, piece.replace(/\s*@\s*/g, " at "), ""));
         });
       });
-    });
+    }
 
     return parsed;
+  }
+
+  function nextImportLine(lines, index) {
+    for (var i = index + 1; i < lines.length; i += 1) {
+      if (lines[i].charAt(0) === "#") continue;
+      return lines[i];
+    }
+    return "";
+  }
+
+  function dateLineIsTripTitle(line, match) {
+    var body = String(match[3] || "");
+    if (/\s(?:-|–|—)\s/.test(body)) return false;
+    if (/(?:@|\b(?:AM|PM)\b|\d{1,2}:\d{2})/i.test(line)) return false;
+    if (/\bfly to\b/i.test(body)) return false;
+    return true;
+  }
+
+  function tripHeadingFromLine(line, currentTrip, currentYear) {
+    var name = String(line || "").trim() || currentTrip;
+    var yearMatch = name.match(/\b(20\d{2})\b/);
+    return {
+      trip: name,
+      year: yearMatch ? Number(yearMatch[1]) : currentYear
+    };
   }
 
   function parseExportLine(line, trip) {
@@ -1054,7 +1087,7 @@
       "When changing `travel-log.js`, bump the script version in `index.html`, for example:",
       "",
       "```html",
-      "<script src=\"./travel-log.js?v=56\" defer></script>",
+      "<script src=\"./travel-log.js?v=57\" defer></script>",
       "```",
       "",
       "This helps browsers load the newest script instead of using a cached copy.",
@@ -1516,5 +1549,11 @@
 
   function createId() {
     return "entry-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  if (typeof TRAVEL_LOG_TEST_HOOKS !== "undefined" && TRAVEL_LOG_TEST_HOOKS) {
+    TRAVEL_LOG_TEST_HOOKS.parseFreeformEvents = parseFreeformEvents;
+    TRAVEL_LOG_TEST_HOOKS.buildExportText = buildExportText;
+    TRAVEL_LOG_TEST_HOOKS.setEntries = function (list) { entries = list; };
   }
 })();
